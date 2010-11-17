@@ -1,6 +1,6 @@
 name:                   dependent-maps
-version:                0.0.0.1
-stability:              experimental
+version:                0.1
+stability:              provisional
 
 cabal-version:          >= 1.2
 build-type:             Simple
@@ -21,4 +21,4 @@ source-repository head
 Library
   hs-source-dirs:       src
   exposed-modules:      Data.Dependent.Map
-  build-depends:        base >= 3 && < 5, containers, dependent-sum
+  build-depends:        base >= 3 && < 5, containers, dependent-sum, prim-uniq

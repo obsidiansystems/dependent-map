@@ -18,7 +18,7 @@ module Data.Dependent.Map
 import Prelude hiding (null, lookup)
 import qualified Data.Map as M
 import Data.Dynamic
-import Data.GADT.Tag
+import Data.Unique.Tag
 import Data.GADT.Compare
 import Data.Dependent.Sum
 
