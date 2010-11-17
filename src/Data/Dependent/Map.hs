@@ -41,6 +41,13 @@ instance GCompare f => Ord (Key f) where
 -- rediscovering its type parameter, elements of which function as identifiers
 -- tagged with the type of the thing they identify.  Real GADTs are one
 -- useful instantiation of @f@, as are 'Tag's from "Data.Dependent.Tag".
+--
+-- Semantically, @'DMap' f@ is equivalent to a set of @'DSum' f@ where no two
+-- elements have the same tag.
+--
+-- More informally, 'DMap' is to dependent products as 'M.Map' is to @(->)@.
+-- Thus it could also be thought of as a partial (in the sense of \"partial
+-- function\") dependent product.
 newtype DMap f = DMap (M.Map (Key f) (DSum f))
 
 -- |Internal: just a standard error message indicating a fundamental programming error.
