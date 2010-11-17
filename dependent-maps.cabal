@@ -5,14 +5,18 @@ stability:              experimental
 cabal-version:          >= 1.2
 build-type:             Simple
 
-author:                 James Cook <your email here>
-maintainer:             James Cook <your email here>
-license:                Unspecified
+author:                 James Cook <mokus@deepbondi.net>
+maintainer:             James Cook <mokus@deepbondi.net>
+license:                PublicDomain
 homepage:               /dev/null
 
-category:               Unclassified
-synopsis:               I'm too lame to describe my project
-description:            I'm too lame to describe my project
+source-repository head
+  type:     darcs
+  location: http://code.haskell.org/~mokus/dependent-maps
+
+category:               Data, Dependent Types
+synopsis:               \"Dependent maps\" (partial dependent products)
+description:            \"Dependent maps\" (partial dependent products)
 
 Library
   hs-source-dirs:       src
