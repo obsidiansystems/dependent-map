@@ -1,0 +1,20 @@
+name:                   dependent-maps
+version:                0.0.0.1
+stability:              experimental
+
+cabal-version:          >= 1.2
+build-type:             Simple
+
+author:                 James Cook <your email here>
+maintainer:             James Cook <your email here>
+license:                Unspecified
+homepage:               /dev/null
+
+category:               Unclassified
+synopsis:               I'm too lame to describe my project
+description:            I'm too lame to describe my project
+
+Library
+  hs-source-dirs:       src
+  exposed-modules:      Data.Dependent.Map
+  build-depends:        base >= 3 && < 5, containers, dependent-sum
