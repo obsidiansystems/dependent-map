@@ -10,13 +10,13 @@ maintainer:             James Cook <mokus@deepbondi.net>
 license:                PublicDomain
 homepage:               /dev/null
 
-source-repository head
-  type:     darcs
-  location: http://code.haskell.org/~mokus/dependent-maps
-
 category:               Data, Dependent Types
 synopsis:               \"Dependent maps\" (partial dependent products)
 description:            \"Dependent maps\" (partial dependent products)
+
+source-repository head
+  type:     darcs
+  location: http://code.haskell.org/~mokus/dependent-maps
 
 Library
   hs-source-dirs:       src
