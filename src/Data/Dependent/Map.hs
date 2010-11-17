@@ -13,6 +13,7 @@ module Data.Dependent.Map
     , intersection
     , difference
     , union, unions
+    , alter, update
     ) where
 
 import Prelude hiding (null, lookup)
@@ -51,6 +52,7 @@ instance GCompare f => Ord (Key f) where
 newtype DMap f = DMap (M.Map (Key f) (DSum f))
 
 -- |Internal: just a standard error message indicating a fundamental programming error.
+panicKeyErr :: String -> a
 panicKeyErr str = error ("Data.Dependent.Map." ++ str ++ ": key not present or type error")
 
 empty :: DMap f
@@ -117,7 +119,10 @@ union (DMap m1) (DMap m2) = DMap (M.union m1 m2)
 unions :: GCompare f => [DMap f] -> DMap f
 unions dmaps = DMap $ M.unions [ m | DMap m <- dmaps]
 
--- update :: GCompare f => (a -> Maybe a) -> f a -> DMap f -> DMap f
--- update f k (DMap m) = DMap (M.update f' (Key k) m)
---     where
---         f' = fmap toDyn . f . flip fromDyn (panicKeyErr "update")
+-- TODO: I expect Data.Map.alter is more efficient.  Figure out the necessary
+-- type gymnastics to make this work as a simple wrapper to that function.
+alter :: GCompare f => (Maybe a -> Maybe a) -> f a -> DMap f -> DMap f
+alter f k m = maybe (delete k) (insert k) (f (lookup k m)) m
+
+update :: GCompare f => (a -> Maybe a) -> f a -> DMap f -> DMap f
+update f = alter (maybe Nothing f)
