@@ -19,7 +19,6 @@ module Data.Dependent.Map
 import Prelude hiding (null, lookup)
 import qualified Data.Map as M
 import Data.Dynamic
-import Data.Unique.Tag
 import Data.GADT.Compare
 import Data.Dependent.Sum
 
@@ -38,20 +37,22 @@ instance GCompare f => Ord (Key f) where
         GEQ -> EQ
         GGT -> GT
 
--- |Dependent maps: f is a GADT-like thing with a facility for 
--- rediscovering its type parameter, elements of which function as identifiers
--- tagged with the type of the thing they identify.  Real GADTs are one
--- useful instantiation of @f@, as are 'Tag's from "Data.Dependent.Tag".
+-- |Dependent maps: @f@ is a type with one type parameter (typically a phantom 
+-- type) and a facility for rediscovering that type parameter.  Values of type
+-- @f a@ function as map keys tagged with the type of the entries they identify.
+-- Real GADTs are one useful instantiation of @f@, as is 'Tag' from
+-- "Data.Unique.Tag" (in the \"prim-uniq\" package).
 --
 -- Semantically, @'DMap' f@ is equivalent to a set of @'DSum' f@ where no two
 -- elements have the same tag.
 --
--- More informally, 'DMap' is to dependent products as 'M.Map' is to @(->)@.
+-- More informally, 'DMap' is to dependent products as 'M.Map' is to functions.
 -- Thus it could also be thought of as a partial (in the sense of \"partial
--- function\") dependent product.
+-- function\") dependent product (a dependent product over @f@ is like a
+-- function of type @forall a. f a -> a@).
 newtype DMap f = DMap (M.Map (Key f) (DSum f))
 
--- |Internal: just a standard error message indicating a fundamental programming error.
+-- | [internal] Just a standard error message indicating a fundamental programming error.
 panicKeyErr :: String -> a
 panicKeyErr str = error ("Data.Dependent.Map." ++ str ++ ": key not present or type error")
 
