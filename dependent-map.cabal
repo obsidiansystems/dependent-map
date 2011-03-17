@@ -1,4 +1,4 @@
-name:                   dependent-maps
+name:                   dependent-map
 version:                0.1
 stability:              provisional
 
@@ -11,14 +11,14 @@ license:                PublicDomain
 homepage:               /dev/null
 
 category:               Data, Dependent Types
-synopsis:               \"Dependent maps\" (partial dependent products)
-description:            \"Dependent maps\" (partial dependent products)
+synopsis:               Dependent finite maps (partial dependent products)
+description:            Dependent finite maps (partial dependent products)
 
 source-repository head
   type:     darcs
-  location: http://code.haskell.org/~mokus/dependent-maps
+  location: http://code.haskell.org/~mokus/dependent-map
 
 Library
   hs-source-dirs:       src
   exposed-modules:      Data.Dependent.Map, Data.Dependent.Map.Internal
-  build-depends:        base >= 3 && < 5, containers, dependent-sum, prim-uniq
+  build-depends:        base >= 3 && < 5, containers, dependent-sum

@@ -131,7 +131,6 @@ import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe
 import Data.Monoid
-import Data.Unique.Tag
 
 instance (GCompare k) => Monoid (DMap k) where
     mempty  = empty
