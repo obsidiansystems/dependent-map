@@ -26,7 +26,7 @@ module Data.Dependent.Map
     , insertWithKey
     , insertWithKey'
     , insertLookupWithKey
---    , insertLookupWithKey'
+    , insertLookupWithKey'
     
     -- ** Delete\/Update
     , delete
@@ -88,7 +88,6 @@ module Data.Dependent.Map
     , filterWithKey
     , partitionWithKey
 
-    , mapMaybe
     , mapMaybeWithKey
     , mapEitherWithKey
 
@@ -129,7 +128,7 @@ import Data.Dependent.Map.Internal
 
 import Data.Dependent.Sum
 import Data.GADT.Compare
-import Data.Maybe
+import Data.Maybe (isJust)
 import Data.Monoid
 
 instance (GCompare k) => Monoid (DMap k) where
@@ -244,6 +243,20 @@ insertLookupWithKey f kx x = kx `seq` go
             GGT -> let (found, r') = go r
                   in (found, balance ky y l r')
             GEQ -> (Just y, Bin sy kx (f kx x y) l r)
+
+-- | /O(log n)/. A strict version of 'insertLookupWithKey'.
+insertLookupWithKey' :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
+                     -> (Maybe v, DMap k)
+insertLookupWithKey' f kx x = kx `seq` go
+  where
+    go Tip = x `seq` (Nothing, singleton kx x)
+    go (Bin sy ky y l r) =
+        case gcompare kx ky of
+            GLT -> let (found, l') = go l
+                  in (found, balance ky y l' r)
+            GGT -> let (found, r') = go r
+                  in (found, balance ky y l r')
+            GEQ -> let x' = f kx x y in x' `seq` (Just y, Bin sy kx x' l r)
 
 {--------------------------------------------------------------------
   Deletion
