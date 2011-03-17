@@ -20,5 +20,5 @@ source-repository head
 
 Library
   hs-source-dirs:       src
-  exposed-modules:      Data.Dependent.Map
+  exposed-modules:      Data.Dependent.Map, Data.Dependent.Map.Internal
   build-depends:        base >= 3 && < 5, containers, dependent-sum, prim-uniq
