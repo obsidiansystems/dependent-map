@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs, RankNTypes #-}
 module Data.Dependent.Map
     ( DMap
-    , DSum(..)
+    , DSum(..), Key(..)
     , GCompare(..), GOrdering(..)
     
     -- * Operators

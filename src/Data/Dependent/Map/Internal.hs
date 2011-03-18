@@ -3,6 +3,7 @@ module Data.Dependent.Map.Internal where
 
 import Data.Dependent.Sum
 import Data.GADT.Compare
+import Data.GADT.Show
 
 -- |A 'Key' is just a wrapper for the true key type @f@ which hides
 -- the associated value type and presents the key's GADT-level 'GCompare' 
@@ -13,6 +14,19 @@ instance GEq f => Eq (Key f) where
     Key a == Key b = maybe False (const True) (geq a b)
 instance GCompare f => Ord (Key f) where
     compare (Key a) (Key b) = weakenOrdering (gcompare a b)
+
+instance GShow f => Show (Key f) where
+    showsPrec p (Key k) = showParen (p>10)
+        ( showString "Key "
+        . gshowsPrec 11 k
+        )
+instance GRead f => Read (Key f) where
+    readsPrec p = readParen (p>10) $ \s ->
+        [ (withTag Key, rest')
+        | let (con, rest) = splitAt 4 s
+        , con == "Key "
+        , (withTag, rest') <- greadsPrec 11 rest
+        ]
 
 -- |Dependent maps: f is a GADT-like thing with a facility for 
 -- rediscovering its type parameter, elements of which function as identifiers
