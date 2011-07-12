@@ -130,6 +130,7 @@ import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe (isJust)
 import Data.Monoid
+import Data.Typeable
 
 instance (GCompare k) => Monoid (DMap k) where
     mempty  = empty
@@ -176,17 +177,25 @@ m1 \\ m2 = difference m1 m2
   Query
 --------------------------------------------------------------------}
 
+-- | /O(log n)/. Is the key a member of the map? See also 'notMember'.
 member :: GCompare k => k a -> DMap k -> Bool
 member k = isJust . lookup k
 
+-- | /O(log n)/. Is the key not a member of the map? See also 'member'.
 notMember :: GCompare k => k v -> DMap k -> Bool
 notMember k m = not (member k m)
 
+-- | /O(log n)/. Find the value at a key.
+-- Calls 'error' when the element can not be found.
+-- Consider using 'lookup' when elements may not be present.
 find :: GCompare k => k v -> DMap k -> v
 find k m = case lookup k m of
     Nothing -> error "DMap.find: element not in the map"
     Just v  -> v
 
+-- | /O(log n)/. The expression @('findWithDefault' def k map)@ returns
+-- the value at key @k@ or returns default value @def@
+-- when the key is not in the map.
 findWithDefault :: GCompare k => v -> k v -> DMap k -> v
 findWithDefault def k m = case lookup k m of
     Nothing -> def
@@ -196,6 +205,10 @@ findWithDefault def k m = case lookup k m of
   Insertion
 --------------------------------------------------------------------}
 
+-- | /O(log n)/. Insert a new key and value in the map.
+-- If the key is already present in the map, the associated value is
+-- replaced with the supplied value. 'insert' is equivalent to
+-- @'insertWith' 'const'@.
 insert :: GCompare k => k v -> v -> DMap k -> DMap k
 insert kx x = kx `seq` go
     where
@@ -205,12 +218,25 @@ insert kx x = kx `seq` go
             GGT -> balance ky y l (go r)
             GEQ -> Bin sz kx x l r
 
+-- | /O(log n)/. Insert with a function, combining new value and old value.
+-- @'insertWith' f key value mp@ 
+-- will insert the entry @key :=> value@ into @mp@ if key does
+-- not exist in the map. If the key does exist, the function will
+-- insert the entry @key :=> f new_value old_value@.
 insertWith :: GCompare k => (v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWith f = insertWithKey (\_ x' y' -> f x' y')
 
+-- | Same as 'insertWith', but the combining function is applied strictly.
+-- This is often the most desirable behavior.
 insertWith' :: GCompare k => (v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWith' f = insertWithKey' (\_ x' y' -> f x' y')
 
+-- | /O(log n)/. Insert with a function, combining key, new value and old value.
+-- @'insertWithKey' f key value mp@ 
+-- will insert the entry @key :=> value@ into @mp@ if key does
+-- not exist in the map. If the key does exist, the function will
+-- insert the entry @key :=> f key new_value old_value@.
+-- Note that the key passed to f is the same key passed to 'insertWithKey'.
 insertWithKey :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWithKey f kx x = kx `seq` go
   where
@@ -221,6 +247,7 @@ insertWithKey f kx x = kx `seq` go
             GGT -> balance ky y l (go r)
             GEQ -> Bin sy kx (f kx x y) l r
 
+-- | Same as 'insertWithKey', but the combining function is applied strictly.
 insertWithKey' :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWithKey' f kx x = kx `seq` go
   where
@@ -231,6 +258,10 @@ insertWithKey' f kx x = kx `seq` go
             GGT -> balance ky y l (go r)
             GEQ -> let x' = f kx x y in seq x' (Bin sy kx x' l r)
 
+-- | /O(log n)/. Combines insert operation with old value retrieval.
+-- The expression (@'insertLookupWithKey' f k x map@)
+-- is a pair where the first element is equal to (@'lookup' k map@)
+-- and the second element equal to (@'insertWithKey' f k x map@).
 insertLookupWithKey :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
                     -> (Maybe v, DMap k)
 insertLookupWithKey f kx x = kx `seq` go
@@ -263,6 +294,8 @@ insertLookupWithKey' f kx x = kx `seq` go
   [delete] is the inlined version of [deleteWith (\k x -> Nothing)]
 --------------------------------------------------------------------}
 
+-- | /O(log n)/. Delete a key and its value from the map. When the key is not
+-- a member of the map, the original map is returned.
 delete :: GCompare k => k v -> DMap k -> DMap k
 delete k = k `seq` go
   where
@@ -273,15 +306,27 @@ delete k = k `seq` go
             GGT -> balance kx x l (go r)
             GEQ -> glue l r
 
+-- | /O(log n)/. Update a value at a specific key with the result of the provided function.
+-- When the key is not
+-- a member of the map, the original map is returned.
 adjust :: GCompare k => (v -> v) -> k v -> DMap k -> DMap k
 adjust f = adjustWithKey (\_ x -> f x)
 
+-- | /O(log n)/. Adjust a value at a specific key. When the key is not
+-- a member of the map, the original map is returned.
 adjustWithKey :: GCompare k => (k v -> v -> v) -> k v -> DMap k -> DMap k
 adjustWithKey f = updateWithKey (\k' x' -> Just (f k' x'))
 
+-- | /O(log n)/. The expression (@'update' f k map@) updates the value @x@
+-- at @k@ (if it is in the map). If (@f x@) is 'Nothing', the element is
+-- deleted. If it is (@'Just' y@), the key @k@ is bound to the new value @y@.
 update :: GCompare k => (v -> Maybe v) -> k v -> DMap k -> DMap k
 update f = updateWithKey (\_ x -> f x)
 
+-- | /O(log n)/. The expression (@'updateWithKey' f k map@) updates the
+-- value @x@ at @k@ (if it is in the map). If (@f k x@) is 'Nothing',
+-- the element is deleted. If it is (@'Just' y@), the key @k@ is bound
+-- to the new value @y@.
 updateWithKey :: GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> DMap k
 updateWithKey f k = k `seq` go
   where
@@ -294,6 +339,9 @@ updateWithKey f k = k `seq` go
                    Just x' -> Bin sx kx x' l r
                    Nothing -> glue l r
 
+-- | /O(log n)/. Lookup and update. See also 'updateWithKey'.
+-- The function returns changed value, if it is updated.
+-- Returns the original key value if the map entry is deleted. 
 updateLookupWithKey :: GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> (Maybe v,DMap k)
 updateLookupWithKey f k = k `seq` go
  where
@@ -306,6 +354,9 @@ updateLookupWithKey f k = k `seq` go
                        Just x' -> (Just x',Bin sx kx x' l r)
                        Nothing -> (Just x,glue l r)
 
+-- | /O(log n)/. The expression (@'alter' f k map@) alters the value @x@ at @k@, or absence thereof.
+-- 'alter' can be used to insert, delete, or update a value in a 'Map'.
+-- In short : @'lookup' k ('alter' f k m) = f ('lookup' k m)@.
 alter :: GCompare k => (Maybe v -> Maybe v) -> k v -> DMap k -> DMap k
 alter f k = k `seq` go
   where
@@ -324,12 +375,17 @@ alter f k = k `seq` go
   Indexing
 --------------------------------------------------------------------}
 
+-- | /O(log n)/. Return the /index/ of a key. The index is a number from
+-- /0/ up to, but not including, the 'size' of the map. Calls 'error' when
+-- the key is not a 'member' of the map.
 findIndex :: GCompare k => k v -> DMap k -> Int
 findIndex k t
   = case lookupIndex k t of
       Nothing  -> error "Map.findIndex: element is not in the map"
       Just idx -> idx
 
+-- | /O(log n)/. Lookup the /index/ of a key. The index is a number from
+-- /0/ up to, but not including, the 'size' of the map.
 lookupIndex :: GCompare k => k v -> DMap k -> Maybe Int
 lookupIndex k = k `seq` go 0
   where
@@ -340,6 +396,8 @@ lookupIndex k = k `seq` go 0
           GGT -> go (idx + size l + 1) r 
           GEQ -> Just (idx + size l)
 
+-- | /O(log n)/. Retrieve an element by /index/. Calls 'error' when an
+-- invalid index is used.
 elemAt :: Int -> DMap k -> DSum k
 elemAt _ Tip = error "Map.elemAt: index out of range"
 elemAt i (Bin _ kx x l r)
@@ -350,6 +408,8 @@ elemAt i (Bin _ kx x l r)
   where
     sizeL = size l
 
+-- | /O(log n)/. Update the element at /index/. Calls 'error' when an
+-- invalid index is used.
 updateAt :: (forall v. k v -> v -> Maybe v) -> Int -> DMap k -> DMap k
 updateAt f i0 t = i0 `seq` go i0 t
  where
@@ -363,6 +423,8 @@ updateAt f i0 t = i0 `seq` go i0 t
       where 
         sizeL = size l
 
+-- | /O(log n)/. Delete the element at /index/.
+-- Defined as (@'deleteAt' i map = 'updateAt' (\k x -> 'Nothing') i map@).
 deleteAt :: Int -> DMap k -> DMap k
 deleteAt i m
   = updateAt (\_ _ -> Nothing) i m
@@ -416,21 +478,17 @@ updateMaxWithKey f = go
     go (Bin _ kx x l r)    = balance kx x l (go r)
     go Tip                 = Tip
 
--- | /O(log n)/. Retrieves the minimal (key,value) pair of the map, and
+-- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
 minViewWithKey :: DMap k -> Maybe (DSum k, DMap k)
 minViewWithKey Tip = Nothing
 minViewWithKey x   = Just (deleteFindMin x)
 
--- | /O(log n)/. Retrieves the maximal (key,value) pair of the map, and
+-- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
 maxViewWithKey :: DMap k -> Maybe (DSum k, DMap k)
 maxViewWithKey Tip = Nothing
 maxViewWithKey x   = Just (deleteFindMax x)
-
--- | /O(log n)/. Retrieves the value associated with minimal key of the
--- map, and the map stripped of that element, or 'Nothing' if passed an
--- empty map.
 
 {--------------------------------------------------------------------
   Union. 
@@ -443,7 +501,7 @@ unions ts
   = foldlStrict union empty ts
 
 -- | The union of a list of maps, with a combining operation:
---   (@'unionsWith' f == 'Prelude.foldl' ('unionWithKey' f) 'empty'@).
+--   (@'unionsWithKey' f == 'Prelude.foldl' ('unionWithKey' f) 'empty'@).
 unionsWithKey :: GCompare k => (forall v. k v -> v -> v -> v) -> [DMap k] -> DMap k
 unionsWithKey f ts
   = foldlStrict (unionWithKey f) empty ts
@@ -537,11 +595,6 @@ hedgeDiff cmplo cmphi t (Bin _ kx _ l r)
 -- If it returns 'Nothing', the element is discarded (proper set difference). If
 -- it returns (@'Just' y@), the element is updated with a new value @y@. 
 -- The implementation uses an efficient /hedge/ algorithm comparable with /hedge-union/.
---
--- > let f k al ar = if al == "b" then Just ((show k) ++ ":" ++ al ++ "|" ++ ar) else Nothing
--- > differenceWithKey f (fromList [(5, "a"), (3, "b")]) (fromList [(5, "A"), (3, "B"), (10, "C")])
--- >     == singleton 3 "3:b|B"
-
 differenceWithKey :: GCompare k => (forall v. k v -> v -> v -> Maybe v) -> DMap k -> DMap k -> DMap k
 differenceWithKey _ Tip _   = Tip
 differenceWithKey _ t1 Tip  = t1
@@ -620,8 +673,7 @@ isSubmapOf m1 m2 = isSubmapOfBy eqTagged m1 m2
 {- | /O(n+m)/.
  The expression (@'isSubmapOfBy' f t1 t2@) returns 'True' if
  all keys in @t1@ are in tree @t2@, and when @f@ returns 'True' when
- applied to their respective values. For example, the following 
- expressions are all 'True':
+ applied to their respective keys and values.
 -}
 isSubmapOfBy :: GCompare k => (forall v. k v -> k v -> v -> v -> Bool) -> DMap k -> DMap k -> Bool
 isSubmapOfBy f t1 t2
@@ -647,7 +699,7 @@ isProperSubmapOf m1 m2
  The expression (@'isProperSubmapOfBy' f m1 m2@) returns 'True' when
  @m1@ and @m2@ are not equal,
  all keys in @m1@ are in @m2@, and when @f@ returns 'True' when
- applied to their respective values. 
+ applied to their respective keys and values. 
 -}
 isProperSubmapOfBy :: GCompare k => (forall v. k v -> k v -> v -> v -> Bool) -> DMap k -> DMap k -> Bool
 isProperSubmapOfBy f t1 t2
@@ -1010,37 +1062,6 @@ showTree m
  the tree that implements the map. Elements are shown using the @showElem@ function. If @hang@ is
  'True', a /hanging/ tree is shown otherwise a rotated tree is shown. If
  @wide@ is 'True', an extra wide version is shown.
-
->  Map> let t = fromDistinctAscList [(x,()) | x <- [1..5]]
->  Map> putStrLn $ showTreeWith (\k x -> show (k,x)) True False t
->  (4,())
->  +--(2,())
->  |  +--(1,())
->  |  +--(3,())
->  +--(5,())
->
->  Map> putStrLn $ showTreeWith (\k x -> show (k,x)) True True t
->  (4,())
->  |
->  +--(2,())
->  |  |
->  |  +--(1,())
->  |  |
->  |  +--(3,())
->  |
->  +--(5,())
->
->  Map> putStrLn $ showTreeWith (\k x -> show (k,x)) False True t
->  +--(5,())
->  |
->  (4,())
->  |
->  |  +--(3,())
->  |  |
->  +--(2,())
->     |
->     +--(1,())
-
 -}
 showTreeWith :: (forall v. k v -> v -> String) -> Bool -> Bool -> DMap k -> String
 showTreeWith showelem hang wide t
@@ -1095,17 +1116,18 @@ withEmpty bars = "   ":bars
   Typeable
 --------------------------------------------------------------------}
 
--- #include "Typeable.h"
--- INSTANCE_TYPEABLE2(Map,mapTc,"Map")
+instance Typeable1 f => Typeable (DMap f) where
+    typeOf ds = mkTyConApp dMapCon [typeOfT]
+        where
+            dMapCon = mkTyCon "Data.Dependent.Map.DMap"
+            typeOfT = typeOf1 $ (undefined :: DMap f -> f a) ds
+    
 
 {--------------------------------------------------------------------
   Assertions
 --------------------------------------------------------------------}
--- | /O(n)/. Test if the internal map structure is valid.
---
--- > valid (fromAscList [(3,"b"), (5,"a")]) == True
--- > valid (fromAscList [(5,"a"), (3,"b")]) == False
 
+-- | /O(n)/. Test if the internal map structure is valid.
 valid :: GCompare k => DMap k -> Bool
 valid t
   = balanced t && ordered t && validsize t

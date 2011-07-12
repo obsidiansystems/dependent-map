@@ -53,9 +53,17 @@ data DMap k where
   Construction
 --------------------------------------------------------------------}
 
+-- | /O(1)/. The empty map.
+--
+-- > empty      == fromList []
+-- > size empty == 0
 empty :: DMap k
 empty = Tip
 
+-- | /O(1)/. A map with a single element.
+--
+-- > singleton 1 'a'        == fromList [(1, 'a')]
+-- > size (singleton 1 'a') == 1
 singleton :: k v -> v -> DMap k
 singleton k x = Bin 1 k x Tip Tip
 
