@@ -131,6 +131,7 @@ import Data.GADT.Compare
 import Data.Maybe (isJust)
 import Data.Monoid
 import Data.Typeable
+import Text.Read
 
 instance (GCompare k) => Monoid (DMap k) where
     mempty  = empty
@@ -1024,20 +1025,14 @@ instance OrdTag k => Ord (DMap k) where
 {--------------------------------------------------------------------
   Read
 --------------------------------------------------------------------}
--- instance (GCompare k, Read k, Read e) => Read (Map k e) where
--- #ifdef __GLASGOW_HASKELL__
---   readPrec = parens $ prec 10 $ do
---     Ident "fromList" <- lexP
---     xs <- readPrec
---     return (fromList xs)
--- 
---   readListPrec = readListPrecDefault
--- #else
---   readsPrec p = readParen (p > 10) $ \ r -> do
---     ("fromList",s) <- lex r
---     (xs,t) <- reads s
---     return (fromList xs,t)
--- #endif
+
+instance (GCompare f, ReadTag f) => Read (DMap f) where
+  readPrec = parens $ prec 10 $ do
+    Ident "fromList" <- lexP
+    xs <- readPrec
+    return (fromList xs)
+
+  readListPrec = readListPrecDefault
 
 {--------------------------------------------------------------------
   Show
