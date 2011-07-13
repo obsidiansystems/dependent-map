@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Data.Dependent.Map.Internal where
 
 import Data.Dependent.Sum
@@ -85,9 +86,10 @@ size Bin{sz = n}    = n
 --
 -- The function will return the corresponding value as @('Just' value)@,
 -- or 'Nothing' if the key isn't in the map.
-lookup :: GCompare k => k v -> DMap k -> Maybe v
+lookup :: forall k v. GCompare k => k v -> DMap k -> Maybe v
 lookup k = k `seq` go
     where
+        go :: DMap k -> Maybe v
         go Tip = Nothing
         go (Bin _ kx x l r) = 
             case gcompare k kx of
@@ -95,9 +97,10 @@ lookup k = k `seq` go
                 GGT -> go r
                 GEQ -> Just x
 
-lookupAssoc :: GCompare k => Key k -> DMap k -> Maybe (DSum k)
+lookupAssoc :: forall k v. GCompare k => Key k -> DMap k -> Maybe (DSum k)
 lookupAssoc (Key k) = k `seq` go
   where
+    go :: DMap k -> Maybe (DSum k)
     go Tip = Nothing
     go (Bin _ kx x l r) =
         case gcompare k kx of

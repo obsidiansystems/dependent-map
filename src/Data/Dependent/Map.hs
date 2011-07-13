@@ -1,4 +1,7 @@
 {-# LANGUAGE GADTs, RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Data.Dependent.Map
     ( DMap
     , DSum(..), Key(..)
@@ -150,7 +153,7 @@ infixl 9 !,\\ --
 -- > fromList [(5,'a'), (3,'b')] ! 5 == 'a'
 
 (!) :: GCompare k => DMap k -> k v -> v
-m ! k    = find k m
+(!) m k    = find k m
 
 -- | Same as 'difference'.
 (\\) :: GCompare k => DMap k -> DMap k -> DMap k
@@ -210,9 +213,10 @@ findWithDefault def k m = case lookup k m of
 -- If the key is already present in the map, the associated value is
 -- replaced with the supplied value. 'insert' is equivalent to
 -- @'insertWith' 'const'@.
-insert :: GCompare k => k v -> v -> DMap k -> DMap k
+insert :: forall k v. GCompare k => k v -> v -> DMap k -> DMap k
 insert kx x = kx `seq` go
     where
+        go :: DMap k -> DMap k
         go Tip = singleton kx x
         go (Bin sz ky y l r) = case gcompare kx ky of
             GLT -> balance ky y (go l) r
@@ -238,9 +242,10 @@ insertWith' f = insertWithKey' (\_ x' y' -> f x' y')
 -- not exist in the map. If the key does exist, the function will
 -- insert the entry @key :=> f key new_value old_value@.
 -- Note that the key passed to f is the same key passed to 'insertWithKey'.
-insertWithKey :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
+insertWithKey :: forall k v. GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWithKey f kx x = kx `seq` go
   where
+    go :: DMap k -> DMap k
     go Tip = singleton kx x
     go (Bin sy ky y l r) =
         case gcompare kx ky of
@@ -249,9 +254,10 @@ insertWithKey f kx x = kx `seq` go
             GEQ -> Bin sy kx (f kx x y) l r
 
 -- | Same as 'insertWithKey', but the combining function is applied strictly.
-insertWithKey' :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
+insertWithKey' :: forall k v. GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k -> DMap k
 insertWithKey' f kx x = kx `seq` go
   where
+    go :: DMap k -> DMap k
     go Tip = singleton kx $! x
     go (Bin sy ky y l r) =
         case gcompare kx ky of
@@ -263,10 +269,11 @@ insertWithKey' f kx x = kx `seq` go
 -- The expression (@'insertLookupWithKey' f k x map@)
 -- is a pair where the first element is equal to (@'lookup' k map@)
 -- and the second element equal to (@'insertWithKey' f k x map@).
-insertLookupWithKey :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
+insertLookupWithKey :: forall k v. GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
                     -> (Maybe v, DMap k)
 insertLookupWithKey f kx x = kx `seq` go
   where
+    go :: DMap k -> (Maybe v, DMap k)
     go Tip = (Nothing, singleton kx x)
     go (Bin sy ky y l r) =
         case gcompare kx ky of
@@ -277,10 +284,11 @@ insertLookupWithKey f kx x = kx `seq` go
             GEQ -> (Just y, Bin sy kx (f kx x y) l r)
 
 -- | /O(log n)/. A strict version of 'insertLookupWithKey'.
-insertLookupWithKey' :: GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
+insertLookupWithKey' :: forall k v. GCompare k => (k v -> v -> v -> v) -> k v -> v -> DMap k
                      -> (Maybe v, DMap k)
 insertLookupWithKey' f kx x = kx `seq` go
   where
+    go :: DMap k -> (Maybe v, DMap k)
     go Tip = x `seq` (Nothing, singleton kx x)
     go (Bin sy ky y l r) =
         case gcompare kx ky of
@@ -297,9 +305,10 @@ insertLookupWithKey' f kx x = kx `seq` go
 
 -- | /O(log n)/. Delete a key and its value from the map. When the key is not
 -- a member of the map, the original map is returned.
-delete :: GCompare k => k v -> DMap k -> DMap k
+delete :: forall k v. GCompare k => k v -> DMap k -> DMap k
 delete k = k `seq` go
   where
+    go :: DMap k -> DMap k
     go Tip = Tip
     go (Bin _ kx x l r) =
         case gcompare k kx of
@@ -328,9 +337,10 @@ update f = updateWithKey (\_ x -> f x)
 -- value @x@ at @k@ (if it is in the map). If (@f k x@) is 'Nothing',
 -- the element is deleted. If it is (@'Just' y@), the key @k@ is bound
 -- to the new value @y@.
-updateWithKey :: GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> DMap k
+updateWithKey :: forall k v. GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> DMap k
 updateWithKey f k = k `seq` go
   where
+    go :: DMap k -> DMap k
     go Tip = Tip
     go (Bin sx kx x l r) =
         case gcompare k kx of
@@ -343,9 +353,10 @@ updateWithKey f k = k `seq` go
 -- | /O(log n)/. Lookup and update. See also 'updateWithKey'.
 -- The function returns changed value, if it is updated.
 -- Returns the original key value if the map entry is deleted. 
-updateLookupWithKey :: GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> (Maybe v,DMap k)
+updateLookupWithKey :: forall k v. GCompare k => (k v -> v -> Maybe v) -> k v -> DMap k -> (Maybe v,DMap k)
 updateLookupWithKey f k = k `seq` go
  where
+   go :: DMap k -> (Maybe v, DMap k)
    go Tip = (Nothing,Tip)
    go (Bin sx kx x l r) =
           case gcompare k kx of
@@ -358,9 +369,10 @@ updateLookupWithKey f k = k `seq` go
 -- | /O(log n)/. The expression (@'alter' f k map@) alters the value @x@ at @k@, or absence thereof.
 -- 'alter' can be used to insert, delete, or update a value in a 'Map'.
 -- In short : @'lookup' k ('alter' f k m) = f ('lookup' k m)@.
-alter :: GCompare k => (Maybe v -> Maybe v) -> k v -> DMap k -> DMap k
+alter :: forall k v. GCompare k => (Maybe v -> Maybe v) -> k v -> DMap k -> DMap k
 alter f k = k `seq` go
   where
+    go :: DMap k -> DMap k
     go Tip = case f Nothing of
                Nothing -> Tip
                Just x  -> singleton k x
@@ -387,12 +399,13 @@ findIndex k t
 
 -- | /O(log n)/. Lookup the /index/ of a key. The index is a number from
 -- /0/ up to, but not including, the 'size' of the map.
-lookupIndex :: GCompare k => k v -> DMap k -> Maybe Int
+lookupIndex :: forall k v. GCompare k => k v -> DMap k -> Maybe Int
 lookupIndex k = k `seq` go 0
   where
-    go idx Tip  = idx `seq` Nothing
-    go idx (Bin _ kx _ l r)
-      = idx `seq` case gcompare k kx of
+    go :: Int -> DMap k -> Maybe Int
+    go !idx Tip  = idx `seq` Nothing
+    go !idx (Bin _ kx _ l r)
+      = case gcompare k kx of
           GLT -> go idx l
           GGT -> go (idx + size l + 1) r 
           GEQ -> Just (idx + size l)
@@ -544,7 +557,7 @@ unionWithKey _ Tip t2  = t2
 unionWithKey _ t1 Tip  = t1
 unionWithKey f t1 t2 = hedgeUnionWithKey f (const LT) (const GT) t1 t2
 
-hedgeUnionWithKey :: GCompare k
+hedgeUnionWithKey :: forall k. GCompare k
                   => (forall v. k v -> v -> v -> v)
                   -> (Key k -> Ordering) -> (Key k -> Ordering)
                   -> DMap k -> DMap k
@@ -553,13 +566,14 @@ hedgeUnionWithKey _ _     _     t1 Tip
   = t1
 hedgeUnionWithKey _ cmplo cmphi Tip (Bin _ kx x l r)
   = join kx x (filterGt cmplo l) (filterLt cmphi r)
-hedgeUnionWithKey f cmplo cmphi (Bin _ kx x l r) t2
+hedgeUnionWithKey f cmplo cmphi (Bin _ (kx :: k tx) x l r) t2
   = join kx newx (hedgeUnionWithKey f cmplo cmpkx l lt) 
                  (hedgeUnionWithKey f cmpkx cmphi r gt)
   where
     cmpkx k     = compare (Key kx) k
     lt          = trim cmplo cmpkx t2
     (found,gt)  = trimLookupLo (Key kx) cmphi t2
+    newx :: tx
     newx        = case found of
                     Nothing -> x
                     Just (ky :=> y) -> case geq kx ky of
@@ -977,9 +991,10 @@ fromDistinctAscList xs
 -- | /O(log n)/. The expression (@'split' k map@) is a pair @(map1,map2)@ where
 -- the keys in @map1@ are smaller than @k@ and the keys in @map2@ larger than @k@.
 -- Any key equal to @k@ is found in neither @map1@ nor @map2@.
-split :: GCompare k => k v -> DMap k -> (DMap k,DMap k)
+split :: forall k v. GCompare k => k v -> DMap k -> (DMap k,DMap k)
 split k = go
   where
+    go :: DMap k -> (DMap k,DMap k)
     go Tip              = (Tip, Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
           GLT -> let (lt,gt) = go l in (lt,join kx x gt r)
@@ -988,9 +1003,10 @@ split k = go
 
 -- | /O(log n)/. The expression (@'splitLookup' k map@) splits a map just
 -- like 'split' but also returns @'lookup' k map@.
-splitLookup :: GCompare k => k v -> DMap k -> (DMap k,Maybe v,DMap k)
+splitLookup :: forall k v. GCompare k => k v -> DMap k -> (DMap k,Maybe v,DMap k)
 splitLookup k = go
   where
+    go :: DMap k -> (DMap k,Maybe v,DMap k)
     go Tip              = (Tip,Nothing,Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
       GLT -> let (lt,z,gt) = go l in (lt,z,join kx x gt r)
@@ -998,9 +1014,10 @@ splitLookup k = go
       GEQ -> (l,Just x,r)
 
 -- | /O(log n)/.
-splitLookupWithKey :: GCompare k => k v -> DMap k -> (DMap k,Maybe (k v, v),DMap k)
+splitLookupWithKey :: forall k v. GCompare k => k v -> DMap k -> (DMap k,Maybe (k v, v),DMap k)
 splitLookupWithKey k = go
   where
+    go :: DMap k -> (DMap k,Maybe (k v, v),DMap k)
     go Tip              = (Tip,Nothing,Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
       GLT -> let (lt,z,gt) = go l in (lt,z,join kx x gt r)

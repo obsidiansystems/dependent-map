@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.1
+version:                0.1.1
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -14,6 +14,8 @@ homepage:               https://github.com/mokus0/dependent-map
 category:               Data, Dependent Types
 synopsis:               Dependent finite maps (partial dependent products)
 description:            Dependent finite maps (partial dependent products)
+
+tested-with:            GHC == 7.0.4, GHC == 6.12.3
 
 source-repository head
   type:     git
