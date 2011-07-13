@@ -15,7 +15,7 @@ category:               Data, Dependent Types
 synopsis:               Dependent finite maps (partial dependent products)
 description:            Dependent finite maps (partial dependent products)
 
-tested-with:            GHC == 7.0.4, GHC == 6.12.3
+tested-with:            GHC == 7.0.4, GHC == 6.12.3, GHC == 6.10.4
 
 source-repository head
   type:     git

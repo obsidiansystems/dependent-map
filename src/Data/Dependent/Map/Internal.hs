@@ -42,13 +42,12 @@ instance GRead f => Read (Key f) where
 -- function\") dependent product.
 data DMap k where
     Tip :: DMap k
-    Bin ::
-        { sz    :: !Int
-        , key   :: !(k v)
-        , value :: v
-        , left  :: !(DMap k)
-        , right :: !(DMap k)
-        } -> DMap k
+    Bin :: {- sz    -} !Int
+        -> {- key   -} !(k v)
+        -> {- value -} v
+        -> {- left  -} !(DMap k)
+        -> {- right -} !(DMap k)
+        -> DMap k
 
 {--------------------------------------------------------------------
   Construction
@@ -79,8 +78,8 @@ null Bin{}  = False
 
 -- | /O(1)/. The number of elements in the map.
 size :: DMap k -> Int
-size Tip            = 0
-size Bin{sz = n}    = n
+size Tip                = 0
+size (Bin n _ _ _ _)    = n
 
 -- | /O(log n)/. Lookup the value at a key in the map.
 --
