@@ -1,5 +1,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
+{-# LANGUAGE Safe #-}
+#endif
 module Data.Dependent.Map.Internal where
 
 import Data.Dependent.Sum

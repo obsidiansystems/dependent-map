@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.1.1
+version:                0.1.1.1
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -15,7 +15,10 @@ category:               Data, Dependent Types
 synopsis:               Dependent finite maps (partial dependent products)
 description:            Dependent finite maps (partial dependent products)
 
-tested-with:            GHC == 7.0.4, GHC == 6.12.3, GHC == 6.10.4
+tested-with:            GHC == 7.2.1,
+                        GHC == 7.0.4,
+                        GHC == 6.12.3,
+                        GHC == 6.10.4
 
 source-repository head
   type:     git
@@ -26,4 +29,8 @@ Library
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
   exposed-modules:      Data.Dependent.Map
   other-modules:        Data.Dependent.Map.Internal
+                        Data.Dependent.Map.Typeable
   build-depends:        base >= 3 && < 5, containers, dependent-sum
+  if impl(ghc >= 7.2)
+    build-depends:      dependent-sum >= 0.2.0.1
+    ghc-options:        -trust base -trust dependent-sum

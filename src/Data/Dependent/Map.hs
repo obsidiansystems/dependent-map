@@ -2,6 +2,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
+{-# LANGUAGE Safe #-}
+#endif
 module Data.Dependent.Map
     ( DMap
     , DSum(..), Key(..)
@@ -128,12 +132,12 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup)
 import Data.Dependent.Map.Internal
+import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
 
 import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe (isJust)
 import Data.Monoid
-import Data.Typeable
 import Text.Read
 
 instance (GCompare k) => Monoid (DMap k) where
@@ -1123,17 +1127,6 @@ node           = "+--"
 withBar, withEmpty :: [String] -> [String]
 withBar bars   = "|  ":bars
 withEmpty bars = "   ":bars
-
-{--------------------------------------------------------------------
-  Typeable
---------------------------------------------------------------------}
-
-instance Typeable1 f => Typeable (DMap f) where
-    typeOf ds = mkTyConApp dMapCon [typeOfT]
-        where
-            dMapCon = mkTyCon "Data.Dependent.Map.DMap"
-            typeOfT = typeOf1 $ (undefined :: DMap f -> f a) ds
-    
 
 {--------------------------------------------------------------------
   Assertions
