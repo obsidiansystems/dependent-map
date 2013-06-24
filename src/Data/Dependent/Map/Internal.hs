@@ -44,14 +44,14 @@ instance GRead f => Read (Key f) where
 -- More informally, 'DMap' is to dependent products as 'M.Map' is to @(->)@.
 -- Thus it could also be thought of as a partial (in the sense of \"partial
 -- function\") dependent product.
-data DMap k where
-    Tip :: DMap k
+data DMap k f where
+    Tip :: DMap k f
     Bin :: {- sz    -} !Int
         -> {- key   -} !(k v)
-        -> {- value -} v
-        -> {- left  -} !(DMap k)
-        -> {- right -} !(DMap k)
-        -> DMap k
+        -> {- value -} f v
+        -> {- left  -} !(DMap k f)
+        -> {- right -} !(DMap k f)
+        -> DMap k f
 
 {--------------------------------------------------------------------
   Construction
@@ -61,14 +61,14 @@ data DMap k where
 --
 -- > empty      == fromList []
 -- > size empty == 0
-empty :: DMap k
+empty :: DMap k f
 empty = Tip
 
 -- | /O(1)/. A map with a single element.
 --
 -- > singleton 1 'a'        == fromList [(1, 'a')]
 -- > size (singleton 1 'a') == 1
-singleton :: k v -> v -> DMap k
+singleton :: k v -> f v -> DMap k f
 singleton k x = Bin 1 k x Tip Tip
 
 {--------------------------------------------------------------------
@@ -76,12 +76,12 @@ singleton k x = Bin 1 k x Tip Tip
 --------------------------------------------------------------------}
 
 -- | /O(1)/. Is the map empty?
-null :: DMap k -> Bool
+null :: DMap k f -> Bool
 null Tip    = True
 null Bin{}  = False
 
 -- | /O(1)/. The number of elements in the map.
-size :: DMap k -> Int
+size :: DMap k f -> Int
 size Tip                = 0
 size (Bin n _ _ _ _)    = n
 
@@ -89,10 +89,10 @@ size (Bin n _ _ _ _)    = n
 --
 -- The function will return the corresponding value as @('Just' value)@,
 -- or 'Nothing' if the key isn't in the map.
-lookup :: forall k v. GCompare k => k v -> DMap k -> Maybe v
+lookup :: forall k f v. GCompare k => k v -> DMap k f -> Maybe (f v)
 lookup k = k `seq` go
     where
-        go :: DMap k -> Maybe v
+        go :: DMap k f -> Maybe (f v)
         go Tip = Nothing
         go (Bin _ kx x l r) = 
             case gcompare k kx of
@@ -100,10 +100,10 @@ lookup k = k `seq` go
                 GGT -> go r
                 GEQ -> Just x
 
-lookupAssoc :: forall k v. GCompare k => Key k -> DMap k -> Maybe (DSum k)
+lookupAssoc :: forall k f v. GCompare k => Key k -> DMap k f -> Maybe (DSum k f)
 lookupAssoc (Key k) = k `seq` go
   where
-    go :: DMap k -> Maybe (DSum k)
+    go :: DMap k f -> Maybe (DSum k f)
     go Tip = Nothing
     go (Bin _ kx x l r) =
         case gcompare k kx of
@@ -143,7 +143,7 @@ lookupAssoc (Key k) = k `seq` go
 {--------------------------------------------------------------------
   Join 
 --------------------------------------------------------------------}
-join :: GCompare k => k v -> v -> DMap k -> DMap k -> DMap k
+join :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> DMap k f
 join kx x Tip r  = insertMin kx x r
 join kx x l Tip  = insertMax kx x l
 join kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
@@ -153,7 +153,7 @@ join kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
 
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
-insertMax,insertMin :: k v -> v -> DMap k -> DMap k
+insertMax,insertMin :: k v -> f v -> DMap k f -> DMap k f
 insertMax kx x t
   = case t of
       Tip -> singleton kx x
@@ -169,7 +169,7 @@ insertMin kx x t
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
 --------------------------------------------------------------------}
-merge :: DMap k -> DMap k -> DMap k
+merge :: DMap k f -> DMap k f -> DMap k f
 merge Tip r   = r
 merge l Tip   = l
 merge l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
@@ -181,7 +181,7 @@ merge l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
   [glue l r]: glues two trees together.
   Assumes that [l] and [r] are already balanced with respect to each other.
 --------------------------------------------------------------------}
-glue :: DMap k -> DMap k -> DMap k
+glue :: DMap k f -> DMap k f -> DMap k f
 glue Tip r = r
 glue l Tip = l
 glue l r   
@@ -193,7 +193,7 @@ glue l r
 -- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")]) 
 -- > deleteFindMin                                            Error: can not return the minimal element of an empty map
 
-deleteFindMin :: DMap k -> (DSum k, DMap k)
+deleteFindMin :: DMap k f -> (DSum k f, DMap k f)
 deleteFindMin t 
   = case t of
       Bin _ k x Tip r -> (k :=> x ,r)
@@ -205,7 +205,7 @@ deleteFindMin t
 -- > deleteFindMax (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((10,"c"), fromList [(3,"b"), (5,"a")])
 -- > deleteFindMax empty                                      Error: can not return the maximal element of an empty map
 
-deleteFindMax :: DMap k -> (DSum k, DMap k)
+deleteFindMax :: DMap k f -> (DSum k f, DMap k f)
 deleteFindMax t
   = case t of
       Bin _ k x l Tip -> (k :=> x,l)
@@ -247,7 +247,7 @@ delta,ratio :: Int
 delta = 4
 ratio = 2
 
-balance :: k v -> v -> DMap k -> DMap k -> DMap k
+balance :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 balance k x l r
   | sizeL + sizeR <= 1    = Bin sizeX k x l r
   | sizeR >= delta*sizeL  = rotateL k x l r
@@ -259,26 +259,26 @@ balance k x l r
     sizeX = sizeL + sizeR + 1
 
 -- rotate
-rotateL :: k v -> v -> DMap k -> DMap k -> DMap k
+rotateL :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 rotateL k x l r@(Bin _ _ _ ly ry)
   | size ly < ratio*size ry = singleL k x l r
   | otherwise               = doubleL k x l r
 rotateL _ _ _ Tip = error "rotateL Tip"
 
-rotateR :: k v -> v -> DMap k -> DMap k -> DMap k
+rotateR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 rotateR k x l@(Bin _ _ _ ly ry) r
   | size ry < ratio*size ly = singleR k x l r
   | otherwise               = doubleR k x l r
 rotateR _ _ Tip _ = error "rotateR Tip"
 
 -- basic rotations
-singleL, singleR :: k v -> v -> DMap k -> DMap k -> DMap k
+singleL, singleR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 singleL k1 x1 t1 (Bin _ k2 x2 t2 t3)  = bin k2 x2 (bin k1 x1 t1 t2) t3
 singleL _ _ _ Tip = error "singleL Tip"
 singleR k1 x1 (Bin _ k2 x2 t1 t2) t3  = bin k2 x2 t1 (bin k1 x1 t2 t3)
 singleR _ _ Tip _ = error "singleR Tip"
 
-doubleL, doubleR :: k v -> v -> DMap k -> DMap k -> DMap k
+doubleL, doubleR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 doubleL k1 x1 t1 (Bin _ k2 x2 (Bin _ k3 x3 t2 t3) t4) = bin k3 x3 (bin k1 x1 t1 t2) (bin k2 x2 t3 t4)
 doubleL _ _ _ _ = error "doubleL"
 doubleR k1 x1 (Bin _ k2 x2 t1 (Bin _ k3 x3 t2 t3)) t4 = bin k3 x3 (bin k2 x2 t1 t2) (bin k1 x1 t3 t4)
@@ -287,7 +287,7 @@ doubleR _ _ _ _ = error "doubleR"
 {--------------------------------------------------------------------
   The bin constructor maintains the size of the tree
 --------------------------------------------------------------------}
-bin :: k v -> v -> DMap k -> DMap k -> DMap k
+bin :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 bin k x l r
   = Bin (size l + size r + 1) k x l r
 
@@ -313,7 +313,7 @@ bin k x l r
   values between the range [lo] to [hi]. The returned tree is either
   empty or the key of the root is between @lo@ and @hi@.
 --------------------------------------------------------------------}
-trim :: (Key k -> Ordering) -> (Key k -> Ordering) -> DMap k -> DMap k
+trim :: (Key k -> Ordering) -> (Key k -> Ordering) -> DMap k f -> DMap k f
 trim _     _     Tip = Tip
 trim cmplo cmphi t@(Bin _ kx _ l r)
   = case cmplo (Key kx) of
@@ -322,7 +322,7 @@ trim cmplo cmphi t@(Bin _ kx _ l r)
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
               
-trimLookupLo :: GCompare k => Key k -> (Key k -> Ordering) -> DMap k -> (Maybe (DSum k), DMap k)
+trimLookupLo :: GCompare k => Key k -> (Key k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
 trimLookupLo _  _     Tip = (Nothing,Tip)
 trimLookupLo lo cmphi t@(Bin _ kx x l r)
   = case compare lo (Key kx) of
@@ -337,7 +337,7 @@ trimLookupLo lo cmphi t@(Bin _ kx x l r)
   [filterGt k t] filter all keys >[k] from tree [t]
   [filterLt k t] filter all keys <[k] from tree [t]
 --------------------------------------------------------------------}
-filterGt :: GCompare k => (Key k -> Ordering) -> DMap k -> DMap k
+filterGt :: GCompare k => (Key k -> Ordering) -> DMap k f -> DMap k f
 filterGt cmp = go
   where
     go Tip              = Tip
@@ -346,7 +346,7 @@ filterGt cmp = go
               GT -> go r
               EQ -> r
 
-filterLt :: GCompare k => (Key k -> Ordering) -> DMap k -> DMap k
+filterLt :: GCompare k => (Key k -> Ordering) -> DMap k f -> DMap k f
 filterLt cmp = go
   where
     go Tip              = Tip

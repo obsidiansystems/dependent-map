@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.1.1.1
+version:                0.2
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -32,7 +32,8 @@ Library
   exposed-modules:      Data.Dependent.Map
   other-modules:        Data.Dependent.Map.Internal
                         Data.Dependent.Map.Typeable
-  build-depends:        base >= 3 && < 5, containers, dependent-sum
+  build-depends:        base >= 3 && < 5,
+                        containers,
+                        dependent-sum == 0.3.*
   if impl(ghc >= 7.2)
-    build-depends:      dependent-sum >= 0.2.0.1
     ghc-options:        -trust base -trust dependent-sum
