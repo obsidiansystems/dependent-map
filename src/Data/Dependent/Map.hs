@@ -8,7 +8,7 @@
 #endif
 module Data.Dependent.Map
     ( DMap
-    , DSum(..), Key(..)
+    , DSum(..), Some(..)
     , GCompare(..), GOrdering(..)
     
     -- * Operators
@@ -138,6 +138,7 @@ import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe (isJust)
 import Data.Monoid
+import Data.Some
 import Text.Read
 
 instance (GCompare k) => Monoid (DMap k f) where
@@ -537,7 +538,7 @@ union t1 t2 = hedgeUnionL (const LT) (const GT) t1 t2
 
 -- left-biased hedge union
 hedgeUnionL :: GCompare k
-            => (Key k -> Ordering) -> (Key k -> Ordering) -> DMap k f -> DMap k f
+            => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
             -> DMap k f
 hedgeUnionL _     _     t1 Tip
   = t1
@@ -547,7 +548,7 @@ hedgeUnionL cmplo cmphi (Bin _ kx x l r) t2
   = join kx x (hedgeUnionL cmplo cmpkx l (trim cmplo cmpkx t2)) 
               (hedgeUnionL cmpkx cmphi r (trim cmpkx cmphi t2))
   where
-    cmpkx k  = compare (Key kx) k
+    cmpkx k  = compare (This kx) k
 
 {--------------------------------------------------------------------
   Union with a combining function
@@ -563,7 +564,7 @@ unionWithKey f t1 t2 = hedgeUnionWithKey f (const LT) (const GT) t1 t2
 
 hedgeUnionWithKey :: forall k f. GCompare k
                   => (forall v. k v -> f v -> f v -> f v)
-                  -> (Key k -> Ordering) -> (Key k -> Ordering)
+                  -> (Some k -> Ordering) -> (Some k -> Ordering)
                   -> DMap k f -> DMap k f
                   -> DMap k f
 hedgeUnionWithKey _ _     _     t1 Tip
@@ -574,9 +575,9 @@ hedgeUnionWithKey f cmplo cmphi (Bin _ (kx :: k tx) x l r) t2
   = join kx newx (hedgeUnionWithKey f cmplo cmpkx l lt) 
                  (hedgeUnionWithKey f cmpkx cmphi r gt)
   where
-    cmpkx k     = compare (Key kx) k
+    cmpkx k     = compare (This kx) k
     lt          = trim cmplo cmpkx t2
-    (found,gt)  = trimLookupLo (Key kx) cmphi t2
+    (found,gt)  = trimLookupLo (This kx) cmphi t2
     newx :: f tx
     newx        = case found of
                     Nothing -> x
@@ -597,7 +598,7 @@ difference t1 Tip  = t1
 difference t1 t2   = hedgeDiff (const LT) (const GT) t1 t2
 
 hedgeDiff :: GCompare k
-          => (Key k -> Ordering) -> (Key k -> Ordering) -> DMap k f -> DMap k f
+          => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
           -> DMap k f
 hedgeDiff _     _     Tip _
   = Tip
@@ -607,7 +608,7 @@ hedgeDiff cmplo cmphi t (Bin _ kx _ l r)
   = merge (hedgeDiff cmplo cmpkx (trim cmplo cmpkx t) l) 
           (hedgeDiff cmpkx cmphi (trim cmpkx cmphi t) r)
   where
-    cmpkx k = compare (Key kx) k   
+    cmpkx k = compare (This kx) k   
 
 -- | /O(n+m)/. Difference with a combining function. When two equal keys are
 -- encountered, the combining function is applied to the key and both values.
@@ -621,7 +622,7 @@ differenceWithKey f t1 t2   = hedgeDiffWithKey f (const LT) (const GT) t1 t2
 
 hedgeDiffWithKey :: GCompare k
                  => (forall v. k v -> f v -> f v -> Maybe (f v))
-                 -> (Key k -> Ordering) -> (Key k -> Ordering)
+                 -> (Some k -> Ordering) -> (Some k -> Ordering)
                  -> DMap k f -> DMap k f
                  -> DMap k f
 hedgeDiffWithKey _ _     _     Tip _
@@ -639,9 +640,9 @@ hedgeDiffWithKey f cmplo cmphi t (Bin _ kx x l r)
               Nothing -> merge tl tr
               Just z  -> join ky z tl tr
   where
-    cmpkx k     = compare (Key kx) k   
+    cmpkx k     = compare (This kx) k   
     lt          = trim cmplo cmpkx t
-    (found,gt)  = trimLookupLo (Key kx) cmphi t
+    (found,gt)  = trimLookupLo (This kx) cmphi t
     tl          = hedgeDiffWithKey f cmplo cmpkx lt l
     tr          = hedgeDiffWithKey f cmpkx cmphi gt r
 
@@ -880,9 +881,9 @@ foldlWithKey' f = go
 -- > keys (fromList [(5,"a"), (3,"b")]) == [3,5]
 -- > keys empty == []
 
-keys  :: DMap k f -> [Key k]
+keys  :: DMap k f -> [Some k]
 keys m
-  = [Key k | (k :=> _) <- assocs m]
+  = [This k | (k :=> _) <- assocs m]
 
 -- | /O(n)/. Return all key\/value pairs in the map in ascending key order.
 assocs :: DMap k f -> [DSum k f]
@@ -1141,11 +1142,11 @@ ordered :: GCompare k => DMap k f -> Bool
 ordered t
   = bounded (const True) (const True) t
   where
-    bounded :: GCompare k => (Key k -> Bool) -> (Key k -> Bool) -> DMap k f -> Bool
+    bounded :: GCompare k => (Some k -> Bool) -> (Some k -> Bool) -> DMap k f -> Bool
     bounded lo hi t'
       = case t' of
           Tip              -> True
-          Bin _ kx _ l r  -> (lo (Key kx)) && (hi (Key kx)) && bounded lo (< Key kx) l && bounded (> Key kx) hi r
+          Bin _ kx _ l r  -> (lo (This kx)) && (hi (This kx)) && bounded lo (< This kx) l && bounded (> This kx) hi r
 
 -- | Exported only for "Debug.QuickCheck"
 balanced :: DMap k f -> Bool

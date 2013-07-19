@@ -8,30 +8,7 @@ module Data.Dependent.Map.Internal where
 
 import Data.Dependent.Sum
 import Data.GADT.Compare
-import Data.GADT.Show
-
--- |A 'Key' is just a wrapper for the true key type @f@ which hides
--- the associated value type and presents the key's GADT-level 'GCompare' 
--- instance as a vanilla 'Ord' instance so it can be used in cases where we
--- don't care about the associated value.
-data Key f where Key :: !(f a) -> Key f
-instance GEq f => Eq (Key f) where
-    Key a == Key b = maybe False (const True) (geq a b)
-instance GCompare f => Ord (Key f) where
-    compare (Key a) (Key b) = weakenOrdering (gcompare a b)
-
-instance GShow f => Show (Key f) where
-    showsPrec p (Key k) = showParen (p>10)
-        ( showString "Key "
-        . gshowsPrec 11 k
-        )
-instance GRead f => Read (Key f) where
-    readsPrec p = readParen (p>10) $ \s ->
-        [ (withTag Key, rest')
-        | let (con, rest) = splitAt 4 s
-        , con == "Key "
-        , (withTag, rest') <- greadsPrec 11 rest
-        ]
+import Data.Some
 
 -- |Dependent maps: f is a GADT-like thing with a facility for 
 -- rediscovering its type parameter, elements of which function as identifiers
@@ -100,8 +77,8 @@ lookup k = k `seq` go
                 GGT -> go r
                 GEQ -> Just x
 
-lookupAssoc :: forall k f v. GCompare k => Key k -> DMap k f -> Maybe (DSum k f)
-lookupAssoc (Key k) = k `seq` go
+lookupAssoc :: forall k f v. GCompare k => Some k -> DMap k f -> Maybe (DSum k f)
+lookupAssoc (This k) = k `seq` go
   where
     go :: DMap k f -> Maybe (DSum k f)
     go Tip = Nothing
@@ -313,20 +290,20 @@ bin k x l r
   values between the range [lo] to [hi]. The returned tree is either
   empty or the key of the root is between @lo@ and @hi@.
 --------------------------------------------------------------------}
-trim :: (Key k -> Ordering) -> (Key k -> Ordering) -> DMap k f -> DMap k f
+trim :: (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
 trim _     _     Tip = Tip
 trim cmplo cmphi t@(Bin _ kx _ l r)
-  = case cmplo (Key kx) of
-      LT -> case cmphi (Key kx) of
+  = case cmplo (This kx) of
+      LT -> case cmphi (This kx) of
               GT -> t
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
               
-trimLookupLo :: GCompare k => Key k -> (Key k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
+trimLookupLo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
 trimLookupLo _  _     Tip = (Nothing,Tip)
 trimLookupLo lo cmphi t@(Bin _ kx x l r)
-  = case compare lo (Key kx) of
-      LT -> case cmphi (Key kx) of
+  = case compare lo (This kx) of
+      LT -> case cmphi (This kx) of
               GT -> (lookupAssoc lo t, t)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
@@ -337,20 +314,20 @@ trimLookupLo lo cmphi t@(Bin _ kx x l r)
   [filterGt k t] filter all keys >[k] from tree [t]
   [filterLt k t] filter all keys <[k] from tree [t]
 --------------------------------------------------------------------}
-filterGt :: GCompare k => (Key k -> Ordering) -> DMap k f -> DMap k f
+filterGt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
 filterGt cmp = go
   where
     go Tip              = Tip
-    go (Bin _ kx x l r) = case cmp (Key kx) of
+    go (Bin _ kx x l r) = case cmp (This kx) of
               LT -> join kx x (go l) r
               GT -> go r
               EQ -> r
 
-filterLt :: GCompare k => (Key k -> Ordering) -> DMap k f -> DMap k f
+filterLt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
 filterLt cmp = go
   where
     go Tip              = Tip
-    go (Bin _ kx x l r) = case cmp (Key kx) of
+    go (Bin _ kx x l r) = case cmp (This kx) of
           LT -> go l
           GT -> join kx x l (go r)
           EQ -> l
