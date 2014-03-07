@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.2
+version:                0.2.0.1
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -31,7 +31,8 @@ Library
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
   exposed-modules:      Data.Dependent.Map
   other-modules:        Data.Dependent.Map.Internal
-                        Data.Dependent.Map.Typeable
+  if impl(ghc < 7.8)
+    other-modules:      Data.Dependent.Map.Typeable
   build-depends:        base >= 3 && < 5,
                         containers,
                         dependent-sum == 0.3.*

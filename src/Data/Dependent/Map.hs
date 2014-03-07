@@ -132,7 +132,9 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup)
 import Data.Dependent.Map.Internal
+#if !MIN_VERSION_base(4,7,0)
 import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
+#endif
 
 import Data.Dependent.Sum
 import Data.GADT.Compare

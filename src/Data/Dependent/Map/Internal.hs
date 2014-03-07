@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
@@ -9,6 +10,9 @@ module Data.Dependent.Map.Internal where
 import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Some
+#if MIN_VERSION_base(4,7,0)
+import Data.Typeable (Typeable)
+#endif
 
 -- |Dependent maps: f is a GADT-like thing with a facility for 
 -- rediscovering its type parameter, elements of which function as identifiers
@@ -29,6 +33,9 @@ data DMap k f where
         -> {- left  -} !(DMap k f)
         -> {- right -} !(DMap k f)
         -> DMap k f
+#if MIN_VERSION_base(4,7,0)
+    deriving Typeable
+#endif
 
 {--------------------------------------------------------------------
   Construction
