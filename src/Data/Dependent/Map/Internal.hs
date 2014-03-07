@@ -1,4 +1,6 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
@@ -9,6 +11,9 @@ module Data.Dependent.Map.Internal where
 import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.GADT.Show
+#if MIN_VERSION_base(4,7,0)
+import Data.Typeable (Typeable)
+#endif
 
 -- |A 'Key' is just a wrapper for the true key type @f@ which hides
 -- the associated value type and presents the key's GADT-level 'GCompare' 
@@ -52,6 +57,9 @@ data DMap k where
         -> {- left  -} !(DMap k)
         -> {- right -} !(DMap k)
         -> DMap k
+#if MIN_VERSION_base(4,7,0)
+    deriving Typeable
+#endif
 
 {--------------------------------------------------------------------
   Construction
