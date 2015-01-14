@@ -36,4 +36,4 @@ Library
   build-depends:        base >= 3 && < 5, containers, dependent-sum == 0.2.*
   if impl(ghc >= 7.2)
     build-depends:      dependent-sum >= 0.2.0.1 && < 0.3
-    ghc-options:        -trust base -trust dependent-sum
+    ghc-options:        -trust=base -trust=dependent-sum
