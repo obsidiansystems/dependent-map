@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.1.1.2
+version:                0.1.1.3
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -17,10 +17,13 @@ description:            Provides a type called @DMap@ which generalizes
                         @Data.Map.Map@, allowing keys to specify the type
                         of value that can be associated with them.
 
-tested-with:            GHC == 7.2.1,
-                        GHC == 7.0.4,
-                        GHC == 6.12.3,
-                        GHC == 6.10.4
+tested-with:            GHC == 7.0.4,
+                        GHC == 7.2.2,
+                        GHC == 7.4.2,
+                        GHC == 7.6.3,
+                        GHC == 7.8.3,
+                        GHC == 7.8.4,
+                        GHC == 7.10.1
 
 source-repository head
   type:     git
