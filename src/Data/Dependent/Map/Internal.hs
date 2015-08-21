@@ -17,12 +17,13 @@ import Data.Some
 import Data.Typeable (Typeable)
 #endif
 
--- |Dependent maps: f is a GADT-like thing with a facility for 
+-- |Dependent maps: 'k' is a GADT-like thing with a facility for 
 -- rediscovering its type parameter, elements of which function as identifiers
 -- tagged with the type of the thing they identify.  Real GADTs are one
--- useful instantiation of @f@, as are 'Tag's from "Data.Dependent.Tag".
+-- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the 
+-- 'prim-uniq' package.
 --
--- Semantically, @'DMap' f@ is equivalent to a set of @'DSum' f@ where no two
+-- Semantically, @'DMap' k f@ is equivalent to a set of @'DSum' k f@ where no two
 -- elements have the same tag.
 --
 -- More informally, 'DMap' is to dependent products as 'M.Map' is to @(->)@.
