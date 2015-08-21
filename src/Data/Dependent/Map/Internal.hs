@@ -110,7 +110,7 @@ lookupAssoc (This k) = k `seq` go
     [balance k x l r] Restores the balance and size.
                       Assumes that the original tree was balanced and
                       that [l] or [r] has changed by at most one element.
-    [join k x l r]    Restores balance and size. 
+    [combine k x l r] Restores balance and size. 
 
   Furthermore, we can construct a new tree from two trees. Both operations
   assume that all values in [l] < all values in [r] and that [l] and [r]
@@ -120,7 +120,7 @@ lookupAssoc (This k) = k `seq` go
     [merge l r]       Merges two trees and restores balance.
 
   Note: in contrast to Adam's paper, we use (<=) comparisons instead
-  of (<) comparisons in [join], [merge] and [balance]. 
+  of (<) comparisons in [combine], [merge] and [balance]. 
   Quickcheck (on [difference]) showed that this was necessary in order 
   to maintain the invariants. It is quite unsatisfactory that I haven't 
   been able to find out why this is actually the case! Fortunately, it 
@@ -128,14 +128,14 @@ lookupAssoc (This k) = k `seq` go
 --------------------------------------------------------------------}
 
 {--------------------------------------------------------------------
-  Join 
+  Combine
 --------------------------------------------------------------------}
-join :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> DMap k f
-join kx x Tip r  = insertMin kx x r
-join kx x l Tip  = insertMax kx x l
-join kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
-  | delta*sizeL <= sizeR  = balance kz z (join kx x l lz) rz
-  | delta*sizeR <= sizeL  = balance ky y ly (join kx x ry r)
+combine :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> DMap k f
+combine kx x Tip r  = insertMin kx x r
+combine kx x l Tip  = insertMax kx x l
+combine kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
+  | delta*sizeL <= sizeR  = balance kz z (combine kx x l lz) rz
+  | delta*sizeR <= sizeL  = balance ky y ly (combine kx x ry r)
   | otherwise             = bin kx x l r
 
 
@@ -329,7 +329,7 @@ filterGt cmp = go
   where
     go Tip              = Tip
     go (Bin _ kx x l r) = case cmp (This kx) of
-              LT -> join kx x (go l) r
+              LT -> combine kx x (go l) r
               GT -> go r
               EQ -> r
 
@@ -339,5 +339,5 @@ filterLt cmp = go
     go Tip              = Tip
     go (Bin _ kx x l r) = case cmp (This kx) of
           LT -> go l
-          GT -> join kx x l (go r)
+          GT -> combine kx x l (go r)
           EQ -> l

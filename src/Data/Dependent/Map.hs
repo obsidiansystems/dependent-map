@@ -545,9 +545,9 @@ hedgeUnionL :: GCompare k
 hedgeUnionL _     _     t1 Tip
   = t1
 hedgeUnionL cmplo cmphi Tip (Bin _ kx x l r)
-  = join kx x (filterGt cmplo l) (filterLt cmphi r)
+  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
 hedgeUnionL cmplo cmphi (Bin _ kx x l r) t2
-  = join kx x (hedgeUnionL cmplo cmpkx l (trim cmplo cmpkx t2)) 
+  = combine kx x (hedgeUnionL cmplo cmpkx l (trim cmplo cmpkx t2)) 
               (hedgeUnionL cmpkx cmphi r (trim cmpkx cmphi t2))
   where
     cmpkx k  = compare (This kx) k
@@ -572,9 +572,9 @@ hedgeUnionWithKey :: forall k f. GCompare k
 hedgeUnionWithKey _ _     _     t1 Tip
   = t1
 hedgeUnionWithKey _ cmplo cmphi Tip (Bin _ kx x l r)
-  = join kx x (filterGt cmplo l) (filterLt cmphi r)
+  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
 hedgeUnionWithKey f cmplo cmphi (Bin _ (kx :: k tx) x l r) t2
-  = join kx newx (hedgeUnionWithKey f cmplo cmpkx l lt) 
+  = combine kx newx (hedgeUnionWithKey f cmplo cmpkx l lt) 
                  (hedgeUnionWithKey f cmpkx cmphi r gt)
   where
     cmpkx k     = compare (This kx) k
@@ -605,7 +605,7 @@ hedgeDiff :: GCompare k
 hedgeDiff _     _     Tip _
   = Tip
 hedgeDiff cmplo cmphi (Bin _ kx x l r) Tip 
-  = join kx x (filterGt cmplo l) (filterLt cmphi r)
+  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
 hedgeDiff cmplo cmphi t (Bin _ kx _ l r) 
   = merge (hedgeDiff cmplo cmpkx (trim cmplo cmpkx t) l) 
           (hedgeDiff cmpkx cmphi (trim cmpkx cmphi t) r)
@@ -630,7 +630,7 @@ hedgeDiffWithKey :: GCompare k
 hedgeDiffWithKey _ _     _     Tip _
   = Tip
 hedgeDiffWithKey _ cmplo cmphi (Bin _ kx x l r) Tip
-  = join kx x (filterGt cmplo l) (filterLt cmphi r)
+  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
 hedgeDiffWithKey f cmplo cmphi t (Bin _ kx x l r) 
   = case found of
       Nothing -> merge tl tr
@@ -640,7 +640,7 @@ hedgeDiffWithKey f cmplo cmphi t (Bin _ kx x l r)
           Just Refl ->
             case f ky y x of
               Nothing -> merge tl tr
-              Just z  -> join ky z tl tr
+              Just z  -> combine ky z tl tr
   where
     cmpkx k     = compare (This kx) k   
     lt          = trim cmplo cmpkx t
@@ -672,13 +672,13 @@ intersectionWithKey f t1@(Bin s1 k1 x1 l1 r1) t2@(Bin s2 k2 x2 l2 r2) =
           tl            = intersectionWithKey f lt l2
           tr            = intersectionWithKey f gt r2
       in case found of
-      Just (k,x) -> join k (f k x x2) tl tr
+      Just (k,x) -> combine k (f k x x2) tl tr
       Nothing -> merge tl tr
    else let (lt,found,gt) = splitLookup k1 t2
             tl            = intersectionWithKey f l1 lt
             tr            = intersectionWithKey f r1 gt
       in case found of
-      Just x -> join k1 (f k1 x1 x) tl tr
+      Just x -> combine k1 (f k1 x1 x) tl tr
       Nothing -> merge tl tr
 
 
@@ -737,7 +737,7 @@ filterWithKey p = go
   where
     go Tip = Tip
     go (Bin _ kx x l r)
-          | p kx x    = join kx x (go l) (go r)
+          | p kx x    = combine kx x (go l) (go r)
           | otherwise = merge (go l) (go r)
 
 -- | /O(n)/. Partition the map according to a predicate. The first
@@ -746,8 +746,8 @@ filterWithKey p = go
 partitionWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f, DMap k f)
 partitionWithKey _ Tip = (Tip,Tip)
 partitionWithKey p (Bin _ kx x l r)
-  | p kx x    = (join kx x l1 r1,merge l2 r2)
-  | otherwise = (merge l1 r1,join kx x l2 r2)
+  | p kx x    = (combine kx x l1 r1,merge l2 r2)
+  | otherwise = (merge l1 r1,combine kx x l2 r2)
   where
     (l1,l2) = partitionWithKey p l
     (r1,r2) = partitionWithKey p r
@@ -758,7 +758,7 @@ mapMaybeWithKey f = go
   where
     go Tip = Tip
     go (Bin _ kx x l r) = case f kx x of
-        Just y  -> join kx y (go l) (go r)
+        Just y  -> combine kx y (go l) (go r)
         Nothing -> merge (go l) (go r)
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
@@ -766,8 +766,8 @@ mapEitherWithKey :: GCompare k =>
   (forall v. k v -> f v -> Either (f v) (f v)) -> DMap k f -> (DMap k f, DMap k f)
 mapEitherWithKey _ Tip = (Tip, Tip)
 mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
-  Left y  -> (join kx y l1 r1, merge l2 r2)
-  Right z -> (merge l1 r1, join kx z l2 r2)
+  Left y  -> (combine kx y l1 r1, merge l2 r2)
+  Right z -> (merge l1 r1, combine kx z l2 r2)
  where
     (l1,l2) = mapEitherWithKey f l
     (r1,r2) = mapEitherWithKey f r
@@ -1004,8 +1004,8 @@ split k = go
     go :: DMap k f -> (DMap k f, DMap k f)
     go Tip              = (Tip, Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
-          GLT -> let (lt,gt) = go l in (lt,join kx x gt r)
-          GGT -> let (lt,gt) = go r in (join kx x l lt,gt)
+          GLT -> let (lt,gt) = go l in (lt,combine kx x gt r)
+          GGT -> let (lt,gt) = go r in (combine kx x l lt,gt)
           GEQ -> (l,r)
 
 -- | /O(log n)/. The expression (@'splitLookup' k map@) splits a map just
@@ -1016,8 +1016,8 @@ splitLookup k = go
     go :: DMap k f -> (DMap k f, Maybe (f v), DMap k f)
     go Tip              = (Tip,Nothing,Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let (lt,z,gt) = go l in (lt,z,join kx x gt r)
-      GGT -> let (lt,z,gt) = go r in (join kx x l lt,z,gt)
+      GLT -> let (lt,z,gt) = go l in (lt,z,combine kx x gt r)
+      GGT -> let (lt,z,gt) = go r in (combine kx x l lt,z,gt)
       GEQ -> (l,Just x,r)
 
 -- | /O(log n)/.
@@ -1027,8 +1027,8 @@ splitLookupWithKey k = go
     go :: DMap k f -> (DMap k f, Maybe (k v, f v), DMap k f)
     go Tip              = (Tip,Nothing,Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let (lt,z,gt) = go l in (lt,z,join kx x gt r)
-      GGT -> let (lt,z,gt) = go r in (join kx x l lt,z,gt)
+      GLT -> let (lt,z,gt) = go l in (lt,z,combine kx x gt r)
+      GGT -> let (lt,z,gt) = go r in (combine kx x l lt,z,gt)
       GEQ -> (l,Just (kx, x),r)
 
 {--------------------------------------------------------------------
