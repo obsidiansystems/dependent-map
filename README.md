@@ -1,4 +1,4 @@
-dependent-map ![Build Status](https://travis-ci.org/mokus0/dependent-map.svg?branch=master)
+dependent-map [![Build Status](https://travis-ci.org/mokus0/dependent-map.svg)](https://travis-ci.org/mokus0/dependent-map)
 ==============
 
 This library defines a dependently-typed finite map type.  It is derived from Data.Map.Map in the containers package, but rather than (conceptually) storing pairs indexed by the first component, it stores `DSum`s (from the `dependent-sum` package) indexed by tag.  For example (using the types from the `dependent-sum` package's `FooGADT` example):
