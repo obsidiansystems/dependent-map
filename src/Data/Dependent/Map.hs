@@ -753,7 +753,7 @@ partitionWithKey p (Bin _ kx x l r)
     (r1,r2) = partitionWithKey p r
 
 -- | /O(n)/. Map keys\/values and collect the 'Just' results.
-mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (f v)) -> DMap k f -> DMap k f
+mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (f' v)) -> DMap k f -> DMap k f'
 mapMaybeWithKey f = go
   where
     go Tip = Tip
@@ -763,7 +763,7 @@ mapMaybeWithKey f = go
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
 mapEitherWithKey :: GCompare k =>
-  (forall v. k v -> f v -> Either (f v) (f v)) -> DMap k f -> (DMap k f, DMap k f)
+  (forall v. k v -> f v -> Either (f'' v) (f' v)) -> DMap k f -> (DMap k f'', DMap k f')
 mapEitherWithKey _ Tip = (Tip, Tip)
 mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
   Left y  -> (combine kx y l1 r1, merge l2 r2)
@@ -777,7 +777,7 @@ mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Map a function over all values in the map.
-mapWithKey :: (forall v. k v -> f v -> f v) -> DMap k f -> DMap k f
+mapWithKey :: (forall v. k v -> f v -> f' v) -> DMap k f -> DMap k f'
 mapWithKey f = go
   where
     go Tip = Tip
@@ -785,7 +785,7 @@ mapWithKey f = go
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
 -- argument throught the map in ascending order of keys.
-mapAccumLWithKey :: (forall v. a -> k v -> f v -> (a, f v)) -> a -> DMap k f -> (a, DMap k f)
+mapAccumLWithKey :: (forall v. a -> k v -> f v -> (a, f' v)) -> a -> DMap k f -> (a, DMap k f')
 mapAccumLWithKey f = go
   where
     go a Tip               = (a,Tip)
@@ -797,7 +797,7 @@ mapAccumLWithKey f = go
 
 -- | /O(n)/. The function 'mapAccumRWithKey' threads an accumulating
 -- argument through the map in descending order of keys.
-mapAccumRWithKey :: (forall v. a -> k v -> f v -> (a, f v)) -> a -> DMap k f -> (a, DMap k f)
+mapAccumRWithKey :: (forall v. a -> k v -> f v -> (a, f' v)) -> a -> DMap k f -> (a, DMap k f')
 mapAccumRWithKey f = go
   where
     go a Tip = (a,Tip)
