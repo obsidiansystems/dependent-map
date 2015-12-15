@@ -139,7 +139,9 @@ import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
 import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe (isJust)
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
+#endif
 import Data.Some
 import Text.Read
 
