@@ -142,7 +142,9 @@ import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
 import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.Maybe (isJust)
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
+#endif
 import Data.Some
 import Text.Read
 
@@ -597,13 +599,13 @@ hedgeUnionWithKey f cmplo cmphi (Bin _ (kx :: k tx) x l r) t2
 -- | /O(n+m)/. Difference of two maps. 
 -- Return elements of the first map not existing in the second map.
 -- The implementation uses an efficient /hedge/ algorithm comparable with /hedge-union/.
-difference :: GCompare k => DMap k f -> DMap k f -> DMap k f
+difference :: GCompare k => DMap k f -> DMap k g -> DMap k f
 difference Tip _   = Tip
 difference t1 Tip  = t1
 difference t1 t2   = hedgeDiff (const LT) (const GT) t1 t2
 
 hedgeDiff :: GCompare k
-          => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
+          => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k g
           -> DMap k f
 hedgeDiff _     _     Tip _
   = Tip
@@ -620,15 +622,15 @@ hedgeDiff cmplo cmphi t (Bin _ kx _ l r)
 -- If it returns 'Nothing', the element is discarded (proper set difference). If
 -- it returns (@'Just' y@), the element is updated with a new value @y@. 
 -- The implementation uses an efficient /hedge/ algorithm comparable with /hedge-union/.
-differenceWithKey :: GCompare k => (forall v. k v -> f v -> f v -> Maybe (f v)) -> DMap k f -> DMap k f -> DMap k f
+differenceWithKey :: GCompare k => (forall v. k v -> f v -> g v -> Maybe (f v)) -> DMap k f -> DMap k g -> DMap k f
 differenceWithKey _ Tip _   = Tip
 differenceWithKey _ t1 Tip  = t1
 differenceWithKey f t1 t2   = hedgeDiffWithKey f (const LT) (const GT) t1 t2
 
 hedgeDiffWithKey :: GCompare k
-                 => (forall v. k v -> f v -> f v -> Maybe (f v))
+                 => (forall v. k v -> f v -> g v -> Maybe (f v))
                  -> (Some k -> Ordering) -> (Some k -> Ordering)
-                 -> DMap k f -> DMap k f
+                 -> DMap k f -> DMap k g
                  -> DMap k f
 hedgeDiffWithKey _ _     _     Tip _
   = Tip
@@ -666,7 +668,7 @@ intersection m1 m2
 
 -- | /O(n+m)/. Intersection with a combining function.
 -- Intersection is more efficient on (bigset \``intersection`\` smallset).
-intersectionWithKey :: GCompare k => (forall v. k v -> f v -> f v -> f v) -> DMap k f -> DMap k f -> DMap k f
+intersectionWithKey :: GCompare k => (forall v. k v -> f v -> g v -> h v) -> DMap k f -> DMap k g -> DMap k h
 intersectionWithKey _ Tip _ = Tip
 intersectionWithKey _ _ Tip = Tip
 intersectionWithKey f t1@(Bin s1 k1 x1 l1 r1) t2@(Bin s2 k2 x2 l2 r2) =
@@ -700,11 +702,11 @@ isSubmapOf m1 m2 = isSubmapOfBy eqTagged m1 m2
  all keys in @t1@ are in tree @t2@, and when @f@ returns 'True' when
  applied to their respective keys and values.
 -}
-isSubmapOfBy :: GCompare k => (forall v. k v -> k v -> f v -> f v -> Bool) -> DMap k f -> DMap k f -> Bool
+isSubmapOfBy :: GCompare k => (forall v. k v -> k v -> f v -> g v -> Bool) -> DMap k f -> DMap k g -> Bool
 isSubmapOfBy f t1 t2
   = (size t1 <= size t2) && (submap' f t1 t2)
 
-submap' :: GCompare k => (forall v. k v -> k v -> f v -> f v -> Bool) -> DMap k f -> DMap k f -> Bool
+submap' :: GCompare k => (forall v. k v -> k v -> f v -> g v -> Bool) -> DMap k f -> DMap k g -> Bool
 submap' _ Tip _ = True
 submap' _ _ Tip = False
 submap' f (Bin _ kx x l r) t
@@ -726,7 +728,7 @@ isProperSubmapOf m1 m2
  all keys in @m1@ are in @m2@, and when @f@ returns 'True' when
  applied to their respective keys and values. 
 -}
-isProperSubmapOfBy :: GCompare k => (forall v. k v -> k v -> f v -> f v -> Bool) -> DMap k f -> DMap k f -> Bool
+isProperSubmapOfBy :: GCompare k => (forall v. k v -> k v -> f v -> g v -> Bool) -> DMap k f -> DMap k g -> Bool
 isProperSubmapOfBy f t1 t2
   = (size t1 < size t2) && (submap' f t1 t2)
 
@@ -756,7 +758,7 @@ partitionWithKey p (Bin _ kx x l r)
     (r1,r2) = partitionWithKey p r
 
 -- | /O(n)/. Map keys\/values and collect the 'Just' results.
-mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (f v)) -> DMap k f -> DMap k f
+mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
 mapMaybeWithKey f = go
   where
     go Tip = Tip
@@ -766,7 +768,7 @@ mapMaybeWithKey f = go
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
 mapEitherWithKey :: GCompare k =>
-  (forall v. k v -> f v -> Either (f v) (f v)) -> DMap k f -> (DMap k f, DMap k f)
+  (forall v. k v -> f v -> Either (g v) (h v)) -> DMap k f -> (DMap k g, DMap k h)
 mapEitherWithKey _ Tip = (Tip, Tip)
 mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
   Left y  -> (combine kx y l1 r1, merge l2 r2)
@@ -780,7 +782,7 @@ mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Map a function over all values in the map.
-mapWithKey :: (forall v. k v -> f v -> f v) -> DMap k f -> DMap k f
+mapWithKey :: (forall v. k v -> f v -> g v) -> DMap k f -> DMap k g
 mapWithKey f = go
   where
     go Tip = Tip
@@ -788,7 +790,7 @@ mapWithKey f = go
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
 -- argument throught the map in ascending order of keys.
-mapAccumLWithKey :: (forall v. a -> k v -> f v -> (a, f v)) -> a -> DMap k f -> (a, DMap k f)
+mapAccumLWithKey :: (forall v. a -> k v -> f v -> (a, g v)) -> a -> DMap k f -> (a, DMap k g)
 mapAccumLWithKey f = go
   where
     go a Tip               = (a,Tip)
@@ -800,7 +802,7 @@ mapAccumLWithKey f = go
 
 -- | /O(n)/. The function 'mapAccumRWithKey' threads an accumulating
 -- argument through the map in descending order of keys.
-mapAccumRWithKey :: (forall v. a -> k v -> f v -> (a, f v)) -> a -> DMap k f -> (a, DMap k f)
+mapAccumRWithKey :: (forall v. a -> k v -> f v -> (a, g v)) -> a -> DMap k f -> (a, DMap k g)
 mapAccumRWithKey f = go
   where
     go a Tip = (a,Tip)
