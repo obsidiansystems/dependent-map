@@ -65,7 +65,9 @@ module Data.Dependent.Map
 
     -- * Traversal
     -- ** Map
+    , map
     , mapWithKey
+    , traverseWithKey
     , mapAccumLWithKey
     , mapAccumRWithKey
     , mapKeysWith
@@ -133,7 +135,8 @@ module Data.Dependent.Map
     , valid
     ) where
 
-import Prelude hiding (null, lookup)
+import Prelude hiding (null, lookup, map)
+import qualified Prelude
 import Data.Dependent.Map.Internal
 #if !MIN_VERSION_base(4,7,0)
 import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
@@ -782,11 +785,29 @@ mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Map a function over all values in the map.
+map :: (forall v. f v -> g v) -> DMap k f -> DMap k g
+map f = go
+  where
+    go Tip = Tip
+    go (Bin sx kx x l r) = Bin sx kx (f x) (go l) (go r)
+
+-- | /O(n)/. Map a function over all values in the map.
 mapWithKey :: (forall v. k v -> f v -> g v) -> DMap k f -> DMap k g
 mapWithKey f = go
   where
     go Tip = Tip
     go (Bin sx kx x l r) = Bin sx kx (f kx x) (go l) (go r)
+
+-- | /O(n)/.
+-- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
+-- That is, behaves exactly like a regular 'traverse' except that the traversing
+-- function also has access to the key associated with a value.
+traverseWithKey :: Applicative t => (forall v. k v -> f v -> t (g v)) -> DMap k f -> t (DMap k g)
+traverseWithKey f = go
+  where
+    go Tip = pure Tip
+    go (Bin 1 k v _ _) = (\v' -> Bin 1 k v' Tip Tip) <$> f k v
+    go (Bin s k v l r) = flip (Bin s k) <$> go l <*> f k v <*> go r
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
 -- argument throught the map in ascending order of keys.
@@ -819,7 +840,7 @@ mapAccumRWithKey f = go
 -- keys to the same new key.  In this case the associated values will be
 -- combined using @c@.
 mapKeysWith :: GCompare k2 => (forall v. k2 v -> f v -> f v -> f v) -> (forall v. k1 v -> k2 v) -> DMap k1 f -> DMap k2 f
-mapKeysWith c f = fromListWithKey c . map fFirst . toList
+mapKeysWith c f = fromListWithKey c . Prelude.map fFirst . toList
     where fFirst (x :=> y) = (f x :=> y)
 
 
