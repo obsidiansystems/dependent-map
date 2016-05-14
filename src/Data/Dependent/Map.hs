@@ -137,6 +137,9 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup, map)
 import qualified Prelude
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative (Applicative(..), (<$>))
+#endif
 import Data.Dependent.Map.Internal
 #if !MIN_VERSION_base(4,7,0)
 import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
