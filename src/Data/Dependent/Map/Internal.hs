@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
 {-# LANGUAGE Safe #-}
@@ -182,11 +184,49 @@ glue l r
 -- > deleteFindMin                                            Error: can not return the minimal element of an empty map
 
 deleteFindMin :: DMap k f -> (DSum k f, DMap k f)
-deleteFindMin t 
-  = case t of
-      Bin _ k x Tip r -> (k :=> x ,r)
-      Bin _ k x l r   -> let (km,l') = deleteFindMin l in (km,balance k x l' r)
-      Tip             -> (error "Map.deleteFindMin: can not return the minimal element of an empty map", Tip)
+deleteFindMin t = case minViewWithKey t of
+      Nothing -> (error "Map.deleteFindMin: can not return the minimal element of an empty map", Tip)
+      Just p -> p
+
+-- | A strict pair.
+data (:*:) a b = !a :*: !b
+infixr 1 :*:
+
+-- | Convert a strict pair to a pair.
+toPair :: a :*: b -> (a, b)
+toPair (a :*: b) = (a, b)
+{-# INLINE toPair #-}
+
+data Triple' a b c = Triple' !a !b !c
+
+-- | Convert a strict triple to a triple.
+toTriple :: Triple' a b c -> (a, b, c)
+toTriple (Triple' a b c) = (a, b, c)
+{-# INLINE toTriple #-}
+
+-- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+minViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+minViewWithKey Tip = Nothing
+minViewWithKey (Bin _ k0 x0 l0 r0) = Just $! toPair $ go k0 x0 l0 r0
+  where
+    go :: k v -> f v -> DMap k f -> DMap k f -> DSum k f :*: DMap k f
+    go k x Tip r = (k :=> x) :*: r
+    go k x (Bin _ kl xl ll lr) r =
+      let !(km :*: l') = go kl xl ll lr
+      in (km :*: balance k x l' r)
+
+-- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+maxViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+maxViewWithKey Tip = Nothing
+maxViewWithKey (Bin _ k0 x0 l0 r0) = Just $! toPair $ go k0 x0 l0 r0
+  where
+    go :: k v -> f v -> DMap k f -> DMap k f -> DSum k f :*: DMap k f
+    go k x l Tip = (k :=> x) :*: l
+    go k x l (Bin _ kr xr rl rr) =
+      let !(km :*: r') = go kr xr rl rr
+      in (km :*: balance k x l r')
 
 -- | /O(log n)/. Delete and find the maximal element.
 --

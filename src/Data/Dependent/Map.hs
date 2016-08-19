@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 #endif
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
 {-# LANGUAGE PolyKinds #-}
@@ -42,6 +42,7 @@ module Data.Dependent.Map
     , delete
     , adjust
     , adjustWithKey
+    , adjustWithKey'
     , update
     , updateWithKey
     , updateLookupWithKey
@@ -120,6 +121,8 @@ module Data.Dependent.Map
     -- * Min\/Max
     , findMin
     , findMax
+    , lookupMin
+    , lookupMax
     , deleteMin
     , deleteMax
     , deleteFindMin
@@ -153,6 +156,7 @@ import Data.Monoid
 #endif
 import Data.Some
 import Text.Read
+import Data.Dependent.Map.PtrEquality
 
 instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
@@ -236,10 +240,37 @@ insert kx x = kx `seq` go
     where
         go :: DMap k f -> DMap k f
         go Tip = singleton kx x
-        go (Bin sz ky y l r) = case gcompare kx ky of
-            GLT -> balance ky y (go l) r
-            GGT -> balance ky y l (go r)
-            GEQ -> Bin sz kx x l r
+        go t@(Bin sz ky y l r) = case gcompare kx ky of
+            GLT -> let !l' = go l
+                   in if l' `ptrEq` l
+                      then t
+                      else balance ky y l' r
+            GGT -> let !r' = go l
+                   in if r' `ptrEq` r
+                      then t
+                      else balance ky y l r'
+            GEQ
+              | kx `ptrEq` ky && x `ptrEq` y -> t
+              | otherwise -> Bin sz kx x l r
+
+-- | /O(log n)/. Insert a new key and value in the map if the key
+-- is not already present. If the key is already present, @insertR@
+-- does nothing.
+insertR :: forall k f v. GCompare k => k v -> f v -> DMap k f -> DMap k f
+insertR kx x = kx `seq` go
+    where
+        go :: DMap k f -> DMap k f
+        go Tip = singleton kx x
+        go t@(Bin sz ky y l r) = case gcompare kx ky of
+            GLT -> let !l' = go l
+                   in if l' `ptrEq` l
+                      then t
+                      else balance ky y l' r
+            GGT -> let !r' = go r
+                   in if r' `ptrEq` r
+                   then t
+                   else balance ky y l r'
+            GEQ -> t
 
 -- | /O(log n)/. Insert with a function, combining new value and old value.
 -- @'insertWith' f key value mp@ 
@@ -343,7 +374,27 @@ adjust f = adjustWithKey (\_ x -> f x)
 -- | /O(log n)/. Adjust a value at a specific key. When the key is not
 -- a member of the map, the original map is returned.
 adjustWithKey :: GCompare k => (k v -> f v -> f v) -> k v -> DMap k f -> DMap k f
-adjustWithKey f = updateWithKey (\k' x' -> Just (f k' x'))
+adjustWithKey f0 !k0 = go f0 k0
+  where
+    go :: GCompare k => (k v -> f v -> f v) -> k v -> DMap k f -> DMap k f
+    go _f _k Tip = Tip
+    go f k (Bin sx kx x l r) =
+      case gcompare k kx of
+        GLT -> Bin sx kx x (go f k l) r
+        GGT -> Bin sx kx x l (go f k r)
+        GEQ -> Bin sx kx (f kx x) l r
+
+-- | /O(log n)/. A strict version of 'adjustWithKey'.
+adjustWithKey' :: GCompare k => (k v -> f v -> f v) -> k v -> DMap k f -> DMap k f
+adjustWithKey' f0 !k0 = go f0 k0
+  where
+    go :: GCompare k => (k v -> f v -> f v) -> k v -> DMap k f -> DMap k f
+    go _f _k Tip = Tip
+    go f k (Bin sx kx x l r) =
+      case gcompare k kx of
+        GLT -> Bin sx kx x (go f k l) r
+        GGT -> Bin sx kx x l (go f k r)
+        GEQ -> let !x' = f kx x in Bin sx kx x' l r
 
 -- | /O(log n)/. The expression (@'update' f k map@) updates the value @x@
 -- at @k@ (if it is in the map). If (@f x@) is 'Nothing', the element is
@@ -440,12 +491,12 @@ elemAt i (Bin _ kx x l r)
   where
     sizeL = size l
 
--- | /O(log n)/. Update the element at /index/. Calls 'error' when an
+-- | /O(log n)/. Update the element at /index/. Does nothing when an
 -- invalid index is used.
 updateAt :: (forall v. k v -> f v -> Maybe (f v)) -> Int -> DMap k f -> DMap k f
 updateAt f i0 t = i0 `seq` go i0 t
  where
-    go _ Tip  = error "Map.updateAt: index out of range"
+    go _ Tip  = Tip
     go i (Bin sx kx x l r) = case compare i sizeL of
       LT -> balance kx x (go i l) r
       GT -> balance kx x l (go (i-sizeL-1) r)
@@ -468,15 +519,33 @@ deleteAt i m
 
 -- | /O(log n)/. The minimal key of the map. Calls 'error' is the map is empty.
 findMin :: DMap k f -> DSum k f
-findMin (Bin _ kx x Tip _)  = kx :=> x
-findMin (Bin _ _  _ l _)    = findMin l
-findMin Tip                 = error "Map.findMin: empty map has no minimal element"
+findMin m = case lookupMin m of
+  Just x -> x
+  Nothing -> error "Map.findMin: empty map has no minimal element"
+
+lookupMin :: DMap k f -> Maybe (DSum k f)
+lookupMin m = case m of
+      Tip -> Nothing
+      Bin _ kx x l _ -> Just $! go kx x l
+  where
+    go :: k v -> f v -> DMap k f -> DSum k f
+    go kx x Tip = kx :=> x
+    go _  _ (Bin _ kx x l _) = go kx x l
 
 -- | /O(log n)/. The maximal key of the map. Calls 'error' is the map is empty.
 findMax :: DMap k f -> DSum k f
-findMax (Bin _ kx x _ Tip)  = kx :=> x
-findMax (Bin _ _  _ _ r)    = findMax r
-findMax Tip                 = error "Map.findMax: empty map has no maximal element"
+findMax m = case lookupMax m of
+  Just x -> x
+  Nothing -> error "Map.findMax: empty map has no maximal element"
+
+lookupMax :: DMap k f -> Maybe (DSum k f)
+lookupMax m = case m of
+      Tip -> Nothing
+      Bin _ kx x _ r -> Just $! go kx x r
+  where
+    go :: k v -> f v -> DMap k f -> DSum k f
+    go kx x Tip = kx :=> x
+    go _  _ (Bin _ kx x _ r) = go kx x r
 
 -- | /O(log n)/. Delete the minimal key. Returns an empty map if the map is empty.
 deleteMin :: DMap k f -> DMap k f
@@ -510,18 +579,6 @@ updateMaxWithKey f = go
     go (Bin _ kx x l r)    = balance kx x l (go r)
     go Tip                 = Tip
 
--- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
--- the map stripped of that element, or 'Nothing' if passed an empty map.
-minViewWithKey :: DMap k f -> Maybe (DSum k f, DMap k f)
-minViewWithKey Tip = Nothing
-minViewWithKey x   = Just (deleteFindMin x)
-
--- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
--- the map stripped of that element, or 'Nothing' if passed an empty map.
-maxViewWithKey :: DMap k f -> Maybe (DSum k f, DMap k f)
-maxViewWithKey Tip = Nothing
-maxViewWithKey x   = Just (deleteFindMax x)
-
 {--------------------------------------------------------------------
   Union. 
 --------------------------------------------------------------------}
@@ -538,161 +595,102 @@ unionsWithKey :: GCompare k => (forall v. k v -> f v -> f v -> f v) -> [DMap k f
 unionsWithKey f ts
   = foldlStrict (unionWithKey f) empty ts
 
--- | /O(n+m)/.
+-- | /O(m*log(n\/m + 1)), m <= n/.
 -- The expression (@'union' t1 t2@) takes the left-biased union of @t1@ and @t2@. 
 -- It prefers @t1@ when duplicate keys are encountered,
 -- i.e. (@'union' == 'unionWith' 'const'@).
--- The implementation uses the efficient /hedge-union/ algorithm.
--- Hedge-union is more efficient on (bigset \``union`\` smallset).
 union :: GCompare k => DMap k f -> DMap k f -> DMap k f
-union Tip t2  = t2
 union t1 Tip  = t1
-union t1 t2 = hedgeUnionL (const LT) (const GT) t1 t2
-
--- left-biased hedge union
-hedgeUnionL :: GCompare k
-            => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
-            -> DMap k f
-hedgeUnionL _     _     t1 Tip
-  = t1
-hedgeUnionL cmplo cmphi Tip (Bin _ kx x l r)
-  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
-hedgeUnionL cmplo cmphi (Bin _ kx x l r) t2
-  = combine kx x (hedgeUnionL cmplo cmpkx l (trim cmplo cmpkx t2)) 
-              (hedgeUnionL cmpkx cmphi r (trim cmpkx cmphi t2))
-  where
-    cmpkx k  = compare (This kx) k
+union t1 (Bin _ kx x Tip Tip) = insertR kx x t1
+union Tip t2  = t2
+union (Bin _ kx x Tip Tip) t2 = insert kx x t2
+union t1@(Bin _ k1 x1 l1 r1) t2 = case split k1 t2 of
+  (l2, r2)
+    | l1 `ptrEq` l1l2 && r1 `ptrEq` r1r2 -> t1
+    | otherwise -> combine k1 x1 l1l2 r1r2
+    where !l1l2 = l1 `union` l2
+          !r1r2 = r1 `union` r2
 
 {--------------------------------------------------------------------
   Union with a combining function
 --------------------------------------------------------------------}
 
 -- | /O(n+m)/.
--- Union with a combining function. The implementation uses the efficient /hedge-union/ algorithm.
--- Hedge-union is more efficient on (bigset \``union`\` smallset).
+-- Union with a combining function.
 unionWithKey :: GCompare k => (forall v. k v -> f v -> f v -> f v) -> DMap k f -> DMap k f -> DMap k f
-unionWithKey _ Tip t2  = t2
 unionWithKey _ t1 Tip  = t1
-unionWithKey f t1 t2 = hedgeUnionWithKey f (const LT) (const GT) t1 t2
-
-hedgeUnionWithKey :: forall k f. GCompare k
-                  => (forall v. k v -> f v -> f v -> f v)
-                  -> (Some k -> Ordering) -> (Some k -> Ordering)
-                  -> DMap k f -> DMap k f
-                  -> DMap k f
-hedgeUnionWithKey _ _     _     t1 Tip
-  = t1
-hedgeUnionWithKey _ cmplo cmphi Tip (Bin _ kx x l r)
-  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
-hedgeUnionWithKey f cmplo cmphi (Bin _ (kx :: k tx) x l r) t2
-  = combine kx newx (hedgeUnionWithKey f cmplo cmpkx l lt) 
-                 (hedgeUnionWithKey f cmpkx cmphi r gt)
-  where
-    cmpkx k     = compare (This kx) k
-    lt          = trim cmplo cmpkx t2
-    (found,gt)  = trimLookupLo (This kx) cmphi t2
-    newx :: f tx
-    newx        = case found of
-                    Nothing -> x
-                    Just (ky :=> y) -> case geq kx ky of
-                        Just Refl -> f kx x y
-                        Nothing   -> error "DMap.union: inconsistent GEq instance"
+unionWithKey _ Tip t2  = t2
+unionWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
+  (l2, mx2, r2) -> case mx2 of
+      Nothing -> combine k1 x1 l1l2 r1r2
+      Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
+    where !l1l2 = unionWithKey f l1 l2
+          !r1r2 = unionWithKey f r1 r2
 
 {--------------------------------------------------------------------
   Difference
 --------------------------------------------------------------------}
 
--- | /O(n+m)/. Difference of two maps. 
+-- | /O(m * log (n\/m + 1)), m <= n/. Difference of two maps. 
 -- Return elements of the first map not existing in the second map.
--- The implementation uses an efficient /hedge/ algorithm comparable with /hedge-union/.
 difference :: GCompare k => DMap k f -> DMap k g -> DMap k f
 difference Tip _   = Tip
 difference t1 Tip  = t1
-difference t1 t2   = hedgeDiff (const LT) (const GT) t1 t2
-
-hedgeDiff :: GCompare k
-          => (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k g
-          -> DMap k f
-hedgeDiff _     _     Tip _
-  = Tip
-hedgeDiff cmplo cmphi (Bin _ kx x l r) Tip 
-  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
-hedgeDiff cmplo cmphi t (Bin _ kx _ l r) 
-  = merge (hedgeDiff cmplo cmpkx (trim cmplo cmpkx t) l) 
-          (hedgeDiff cmpkx cmphi (trim cmpkx cmphi t) r)
-  where
-    cmpkx k = compare (This kx) k   
+difference t1 (Bin _ k2 _x2 l2 r2) = case split k2 t1 of
+  (l1, r1)
+    | size t1 == size l1l2 + size r1r2 -> t1
+    | otherwise -> merge l1l2 r1r2
+    where
+      !l1l2 = l1 `difference` l2
+      !r1r2 = r1 `difference` r2
 
 -- | /O(n+m)/. Difference with a combining function. When two equal keys are
 -- encountered, the combining function is applied to the key and both values.
 -- If it returns 'Nothing', the element is discarded (proper set difference). If
 -- it returns (@'Just' y@), the element is updated with a new value @y@. 
--- The implementation uses an efficient /hedge/ algorithm comparable with /hedge-union/.
 differenceWithKey :: GCompare k => (forall v. k v -> f v -> g v -> Maybe (f v)) -> DMap k f -> DMap k g -> DMap k f
 differenceWithKey _ Tip _   = Tip
 differenceWithKey _ t1 Tip  = t1
-differenceWithKey f t1 t2   = hedgeDiffWithKey f (const LT) (const GT) t1 t2
-
-hedgeDiffWithKey :: GCompare k
-                 => (forall v. k v -> f v -> g v -> Maybe (f v))
-                 -> (Some k -> Ordering) -> (Some k -> Ordering)
-                 -> DMap k f -> DMap k g
-                 -> DMap k f
-hedgeDiffWithKey _ _     _     Tip _
-  = Tip
-hedgeDiffWithKey _ cmplo cmphi (Bin _ kx x l r) Tip
-  = combine kx x (filterGt cmplo l) (filterLt cmphi r)
-hedgeDiffWithKey f cmplo cmphi t (Bin _ kx x l r) 
-  = case found of
-      Nothing -> merge tl tr
-      Just (ky :=> y) -> 
-        case geq kx ky of
-          Nothing -> error "DMap.difference: inconsistent GEq instance"
-          Just Refl ->
-            case f ky y x of
-              Nothing -> merge tl tr
-              Just z  -> combine ky z tl tr
-  where
-    cmpkx k     = compare (This kx) k   
-    lt          = trim cmplo cmpkx t
-    (found,gt)  = trimLookupLo (This kx) cmphi t
-    tl          = hedgeDiffWithKey f cmplo cmpkx lt l
-    tr          = hedgeDiffWithKey f cmpkx cmphi gt r
-
-
+differenceWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
+  (l2, mx2, r2) -> case mx2 of
+      Nothing -> combine k1 x1 l1l2 r1r2
+      Just x2 -> case f k1 x1 x2 of
+        Nothing -> merge l1l2 r1r2
+        Just x1x2 -> combine k1 x1x2 l1l2 r1r2
+    where !l1l2 = differenceWithKey f l1 l2
+          !r1r2 = differenceWithKey f r1 r2
 
 {--------------------------------------------------------------------
   Intersection
 --------------------------------------------------------------------}
 
--- | /O(n+m)/. Intersection of two maps.
+-- | /O(m * log (n\/m + 1), m <= n/. Intersection of two maps.
 -- Return data in the first map for the keys existing in both maps.
 -- (@'intersection' m1 m2 == 'intersectionWith' 'const' m1 m2@).
 intersection :: GCompare k => DMap k f -> DMap k f -> DMap k f
-intersection m1 m2
-  = intersectionWithKey (\_ x _ -> x) m1 m2
+intersection Tip _ = Tip
+intersection _ Tip = Tip
+intersection t1@(Bin s1 k1 x1 l1 r1) t2 =
+  let !(l2, found, r2) = splitMember k1 t2
+      !l1l2 = intersection l1 l2
+      !r1r2 = intersection r1 r2
+  in if found
+     then if l1l2 `ptrEq` l1 && r1r2 `ptrEq` r1
+          then t1
+          else combine k1 x1 l1l2 r1r2
+     else merge l1l2 r1r2
 
--- | /O(n+m)/. Intersection with a combining function.
--- Intersection is more efficient on (bigset \``intersection`\` smallset).
+-- | /O(m * log (n\/m + 1), m <= n/. Intersection with a combining function.
 intersectionWithKey :: GCompare k => (forall v. k v -> f v -> g v -> h v) -> DMap k f -> DMap k g -> DMap k h
 intersectionWithKey _ Tip _ = Tip
 intersectionWithKey _ _ Tip = Tip
-intersectionWithKey f t1@(Bin s1 k1 x1 l1 r1) t2@(Bin s2 k2 x2 l2 r2) =
-   if s1 >= s2 then
-      let (lt,found,gt) = splitLookupWithKey k2 t1
-          tl            = intersectionWithKey f lt l2
-          tr            = intersectionWithKey f gt r2
-      in case found of
-      Just (k,x) -> combine k (f k x x2) tl tr
-      Nothing -> merge tl tr
-   else let (lt,found,gt) = splitLookup k1 t2
-            tl            = intersectionWithKey f l1 lt
-            tr            = intersectionWithKey f r1 gt
-      in case found of
-      Just x -> combine k1 (f k1 x1 x) tl tr
-      Nothing -> merge tl tr
-
-
+intersectionWithKey f (Bin s1 k1 x1 l1 r1) t2 =
+  let !(l2, found, r2) = splitLookup k1 t2
+      !l1l2 = intersectionWithKey f l1 l2
+      !r1r2 = intersectionWithKey f r1 r2
+  in case found of
+       Nothing -> merge l1l2 r1r2
+       Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
 
 {--------------------------------------------------------------------
   Submap
@@ -747,21 +745,28 @@ filterWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> DMa
 filterWithKey p = go
   where
     go Tip = Tip
-    go (Bin _ kx x l r)
-          | p kx x    = combine kx x (go l) (go r)
-          | otherwise = merge (go l) (go r)
+    go t@(Bin _ kx x l r)
+      | p kx x    = if l' `ptrEq` l && r' `ptrEq` r
+                    then t
+                    else combine kx x l' r'
+      | otherwise = merge l' r'
+      where !l' = go l
+            !r' = go r
 
 -- | /O(n)/. Partition the map according to a predicate. The first
 -- map contains all elements that satisfy the predicate, the second all
 -- elements that fail the predicate. See also 'split'.
 partitionWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f, DMap k f)
-partitionWithKey _ Tip = (Tip,Tip)
-partitionWithKey p (Bin _ kx x l r)
-  | p kx x    = (combine kx x l1 r1,merge l2 r2)
-  | otherwise = (merge l1 r1,combine kx x l2 r2)
+partitionWithKey p0 m0 = toPair (go p0 m0)
   where
-    (l1,l2) = partitionWithKey p l
-    (r1,r2) = partitionWithKey p r
+    go :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f :*: DMap k f)
+    go _ Tip = (Tip :*: Tip)
+    go p (Bin _ kx x l r)
+      | p kx x    = (combine kx x l1 r1 :*: merge l2 r2)
+      | otherwise = (merge l1 r1 :*: combine kx x l2 r2)
+      where
+        (l1 :*: l2) = go p l
+        (r1 :*: r2) = go p r
 
 -- | /O(n)/. Map keys\/values and collect the 'Just' results.
 mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
@@ -775,13 +780,18 @@ mapMaybeWithKey f = go
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
 mapEitherWithKey :: GCompare k =>
   (forall v. k v -> f v -> Either (g v) (h v)) -> DMap k f -> (DMap k g, DMap k h)
-mapEitherWithKey _ Tip = (Tip, Tip)
-mapEitherWithKey f (Bin _ kx x l r) = case f kx x of
-  Left y  -> (combine kx y l1 r1, merge l2 r2)
-  Right z -> (merge l1 r1, combine kx z l2 r2)
- where
-    (l1,l2) = mapEitherWithKey f l
-    (r1,r2) = mapEitherWithKey f r
+mapEitherWithKey f0 = toPair . go f0
+  where
+    go :: GCompare k
+       => (forall v. k v -> f v -> Either (g v) (h v))
+       -> DMap k f -> (DMap k g :*: DMap k h)
+    go _ Tip = (Tip :*: Tip)
+    go f (Bin _ kx x l r) = case f kx x of
+      Left y  -> (combine kx y l1 r1 :*: merge l2 r2)
+      Right z -> (merge l1 r1 :*: combine kx z l2 r2)
+      where
+        (l1,l2) = mapEitherWithKey f l
+        (r1,r2) = mapEitherWithKey f r
 
 {--------------------------------------------------------------------
   Mapping
@@ -1019,7 +1029,6 @@ fromDistinctAscList xs
     buildB :: DMap k f -> k v -> f v -> (DMap k f -> a -> b) -> DMap k f -> a -> b
     buildB l k x c r zs       = c (bin k x l r) zs
                       
-
 {--------------------------------------------------------------------
   Split
 --------------------------------------------------------------------}
@@ -1028,37 +1037,50 @@ fromDistinctAscList xs
 -- the keys in @map1@ are smaller than @k@ and the keys in @map2@ larger than @k@.
 -- Any key equal to @k@ is found in neither @map1@ nor @map2@.
 split :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, DMap k f)
-split k = go
+split k = toPair . go
   where
-    go :: DMap k f -> (DMap k f, DMap k f)
-    go Tip              = (Tip, Tip)
+    go :: DMap k f -> (DMap k f :*: DMap k f)
+    go Tip              = (Tip :*: Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
-          GLT -> let (lt,gt) = go l in (lt,combine kx x gt r)
-          GGT -> let (lt,gt) = go r in (combine kx x l lt,gt)
-          GEQ -> (l,r)
+          GLT -> let !(lt :*: gt) = go l in (lt :*: combine kx x gt r)
+          GGT -> let !(lt :*: gt) = go r in (combine kx x l lt :*: gt)
+          GEQ -> (l :*: r)
+{-# INLINABLE split #-}
 
 -- | /O(log n)/. The expression (@'splitLookup' k map@) splits a map just
 -- like 'split' but also returns @'lookup' k map@.
 splitLookup :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, Maybe (f v), DMap k f)
-splitLookup k = go
+splitLookup k = toTriple . go
   where
-    go :: DMap k f -> (DMap k f, Maybe (f v), DMap k f)
-    go Tip              = (Tip,Nothing,Tip)
+    go :: DMap k f -> Triple' (DMap k f) (Maybe (f v)) (DMap k f)
+    go Tip              = Triple' Tip Nothing Tip
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let (lt,z,gt) = go l in (lt,z,combine kx x gt r)
-      GGT -> let (lt,z,gt) = go r in (combine kx x l lt,z,gt)
-      GEQ -> (l,Just x,r)
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GEQ -> Triple' l (Just x) r
+
+-- | /O(log n)/. The expression (@'splitMember' k map@) splits a map just
+-- like 'split' but also returns @'member' k map@.
+splitMember :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, Bool, DMap k f)
+splitMember k = toTriple . go
+  where
+    go :: DMap k f -> Triple' (DMap k f) Bool (DMap k f)
+    go Tip              = Triple' Tip False Tip
+    go (Bin _ kx x l r) = case gcompare k kx of
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GEQ -> Triple' l True r
 
 -- | /O(log n)/.
 splitLookupWithKey :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, Maybe (k v, f v), DMap k f)
-splitLookupWithKey k = go
+splitLookupWithKey k = toTriple . go
   where
-    go :: DMap k f -> (DMap k f, Maybe (k v, f v), DMap k f)
-    go Tip              = (Tip,Nothing,Tip)
+    go :: DMap k f -> Triple' (DMap k f) (Maybe (k v, f v)) (DMap k f)
+    go Tip              = Triple' Tip Nothing Tip
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let (lt,z,gt) = go l in (lt,z,combine kx x gt r)
-      GGT -> let (lt,z,gt) = go r in (combine kx x l lt,z,gt)
-      GEQ -> (l,Just (kx, x),r)
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GEQ -> Triple' l (Just (kx, x)) r
 
 {--------------------------------------------------------------------
   Eq converts the tree to a list. In a lazy setting, this 

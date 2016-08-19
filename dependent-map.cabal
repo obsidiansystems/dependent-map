@@ -33,7 +33,8 @@ Library
   hs-source-dirs:       src
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
   exposed-modules:      Data.Dependent.Map
-  other-modules:        Data.Dependent.Map.Internal
+  other-modules:        Data.Dependent.Map.Internal,
+                        Data.Dependent.Map.PtrEquality
   if impl(ghc < 7.8)
     other-modules:      Data.Dependent.Map.Typeable
   build-depends:        base >= 3 && < 5,
