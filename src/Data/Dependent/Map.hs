@@ -245,7 +245,7 @@ insert kx x = kx `seq` go
                    in if l' `ptrEq` l
                       then t
                       else balance ky y l' r
-            GGT -> let !r' = go l
+            GGT -> let !r' = go r
                    in if r' `ptrEq` r
                       then t
                       else balance ky y l r'
