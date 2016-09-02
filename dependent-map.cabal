@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.2.2.0
+version:                0.2.3.0
 stability:              provisional
 
 cabal-version:          >= 1.6
