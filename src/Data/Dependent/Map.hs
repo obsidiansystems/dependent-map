@@ -154,6 +154,7 @@ import Data.Maybe (isJust)
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
 #endif
+import Data.Semigroup
 import Data.Some
 import Text.Read
 import Data.Dependent.Map.PtrEquality
@@ -162,6 +163,9 @@ instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
     mappend = union
     mconcat = unions
+
+instance (GCompare k) => Semigroup (DMap k f) where
+  (<>) = mappend
 
 {--------------------------------------------------------------------
   Operators
