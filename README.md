@@ -23,6 +23,7 @@ This library defines a dependently-typed finite map type.  It is derived from Da
         ]
 
 Which prints:
+
     fromList [Foo :=> Identity 3.141592653589793,Baz :=> Identity "hello there"]
     fromList [Bar :=> Identity 43]
     fromList [Foo :=> Identity (-1.1415926535897931),Bar :=> Identity 43]
