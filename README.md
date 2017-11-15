@@ -26,3 +26,5 @@ Which prints:
     fromList [Bar :=> 42]
     fromList [Foo :=> -1.1415926535897931,Bar :=> 42]
     fromList [Foo :=> 2.0,Bar :=> 42,Baz :=> "hello there"]
+
+This library can be found on Hackage: https://hackage.haskell.org/package/dependent-map
