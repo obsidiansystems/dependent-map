@@ -101,6 +101,7 @@ module Data.Dependent.Map
     , filterWithKey
     , partitionWithKey
 
+    , mapMaybe
     , mapMaybeWithKey
     , mapEitherWithKey
 
@@ -767,6 +768,10 @@ partitionWithKey p0 m0 = toPair (go p0 m0)
       where
         (l1 :*: l2) = go p l
         (r1 :*: r2) = go p r
+
+-- | /O(n)/. Map values and collect the 'Just' results.
+mapMaybe :: GCompare k => (forall v. f v -> Maybe (g v)) -> DMap k f -> DMap k g
+mapMaybe f = mapMaybeWithKey (const f)
 
 -- | /O(n)/. Map keys\/values and collect the 'Just' results.
 mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
