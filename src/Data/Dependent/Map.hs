@@ -13,7 +13,7 @@ module Data.Dependent.Map
     ( DMap
     , DSum(..), Some(..)
     , GCompare(..), GOrdering(..)
-
+    
     -- * Operators
     , (!), (\\)
 
@@ -24,7 +24,7 @@ module Data.Dependent.Map
     , notMember
     , lookup
     , findWithDefault
-
+    
     -- * Construction
     , empty
     , singleton
@@ -37,7 +37,7 @@ module Data.Dependent.Map
     , insertWithKey'
     , insertLookupWithKey
     , insertLookupWithKey'
-
+    
     -- ** Delete\/Update
     , delete
     , adjust
@@ -47,12 +47,11 @@ module Data.Dependent.Map
     , updateWithKey
     , updateLookupWithKey
     , alter
-    , alterF
 
     -- * Combine
 
     -- ** Union
-    , union
+    , union         
     , unionWithKey
     , unions
     , unionsWithKey
@@ -60,9 +59,9 @@ module Data.Dependent.Map
     -- ** Difference
     , difference
     , differenceWithKey
-
+    
     -- ** Intersection
-    , intersection
+    , intersection           
     , intersectionWithKey
 
     -- * Traversal
@@ -84,7 +83,7 @@ module Data.Dependent.Map
     -- * Conversion
     , keys
     , assocs
-
+    
     -- ** Lists
     , toList
     , fromList
@@ -97,7 +96,7 @@ module Data.Dependent.Map
     , fromAscListWithKey
     , fromDistinctAscList
 
-    -- * Filter
+    -- * Filter 
     , filter
     , filterWithKey
     , partitionWithKey
@@ -106,14 +105,14 @@ module Data.Dependent.Map
     , mapMaybeWithKey
     , mapEitherWithKey
 
-    , split
-    , splitLookup
+    , split         
+    , splitLookup   
 
     -- * Submap
     , isSubmapOf, isSubmapOfBy
     , isProperSubmapOf, isProperSubmapOfBy
 
-    -- * Indexed
+    -- * Indexed 
     , lookupIndex
     , findIndex
     , elemAt
@@ -133,7 +132,7 @@ module Data.Dependent.Map
     , updateMaxWithKey
     , minViewWithKey
     , maxViewWithKey
-
+    
     -- * Debugging
     , showTree
     , showTreeWith
@@ -188,21 +187,21 @@ infixl 9 !,\\ --
 m1 \\ m2 = difference m1 m2
 
 -- #if __GLASGOW_HASKELL__
---
+-- 
 -- {--------------------------------------------------------------------
---   A Data instance
+--   A Data instance  
 -- --------------------------------------------------------------------}
---
+-- 
 -- -- This instance preserves data abstraction at the cost of inefficiency.
 -- -- We omit reflection services for the sake of data abstraction.
---
+-- 
 -- instance (Data k, Data a, GCompare k) => Data (DMap k) where
 --   gfoldl f z m   = z fromList `f` toList m
 --   toConstr _     = error "toConstr"
 --   gunfold _ _    = error "gunfold"
 --   dataTypeOf _   = mkNoRepType "Data.Map.Map"
 --   dataCast2 f    = gcast2 f
---
+-- 
 -- #endif
 
 {--------------------------------------------------------------------
@@ -279,7 +278,7 @@ insertR kx x = kx `seq` go
             GEQ -> t
 
 -- | /O(log n)/. Insert with a function, combining new value and old value.
--- @'insertWith' f key value mp@
+-- @'insertWith' f key value mp@ 
 -- will insert the entry @key :=> value@ into @mp@ if key does
 -- not exist in the map. If the key does exist, the function will
 -- insert the entry @key :=> f new_value old_value@.
@@ -292,7 +291,7 @@ insertWith' :: GCompare k => (f v -> f v -> f v) -> k v -> f v -> DMap k f -> DM
 insertWith' f = insertWithKey' (\_ x' y' -> f x' y')
 
 -- | /O(log n)/. Insert with a function, combining key, new value and old value.
--- @'insertWithKey' f key value mp@
+-- @'insertWithKey' f key value mp@ 
 -- will insert the entry @key :=> value@ into @mp@ if key does
 -- not exist in the map. If the key does exist, the function will
 -- insert the entry @key :=> f key new_value old_value@.
@@ -427,7 +426,7 @@ updateWithKey f k = k `seq` go
 
 -- | /O(log n)/. Lookup and update. See also 'updateWithKey'.
 -- The function returns changed value, if it is updated.
--- Returns the original key value if the map entry is deleted.
+-- Returns the original key value if the map entry is deleted. 
 updateLookupWithKey :: forall k f v. GCompare k => (k v -> f v -> Maybe (f v)) -> k v -> DMap k f -> (Maybe (f v), DMap k f)
 updateLookupWithKey f k = k `seq` go
  where
@@ -436,7 +435,7 @@ updateLookupWithKey f k = k `seq` go
    go (Bin sx kx x l r) =
           case gcompare k kx of
                GLT -> let (found,l') = go l in (found,balance kx x l' r)
-               GGT -> let (found,r') = go r in (found,balance kx x l r')
+               GGT -> let (found,r') = go r in (found,balance kx x l r') 
                GEQ -> case f kx x of
                        Just x' -> (Just x',Bin sx kx x' l r)
                        Nothing -> (Just x,glue l r)
@@ -469,7 +468,7 @@ alterF k f = go
 
     go (Bin sx kx x l r) = case gcompare k kx of
       GLT -> (\l' -> balance kx x l' r) <$> go l
-      GGT -> balance kx x l <$> go r
+      GGT -> (\r' -> balance kx x l r') <$> go r
       GEQ -> maybe (glue l r) (\x' -> Bin sx kx x' l r) <$> f (Just x)
 
 {--------------------------------------------------------------------
@@ -495,7 +494,7 @@ lookupIndex k = k `seq` go 0
     go !idx (Bin _ kx _ l r)
       = case gcompare k kx of
           GLT -> go idx l
-          GGT -> go (idx + size l + 1) r
+          GGT -> go (idx + size l + 1) r 
           GEQ -> Just (idx + size l)
 
 -- | /O(log n)/. Retrieve an element by /index/. Calls 'error' when an
@@ -522,7 +521,7 @@ updateAt f i0 t = i0 `seq` go i0 t
       EQ -> case f kx x of
               Just x' -> Bin sx kx x' l r
               Nothing -> glue l r
-      where
+      where 
         sizeL = size l
 
 -- | /O(log n)/. Delete the element at /index/.
@@ -599,7 +598,7 @@ updateMaxWithKey f = go
     go Tip                 = Tip
 
 {--------------------------------------------------------------------
-  Union.
+  Union. 
 --------------------------------------------------------------------}
 
 -- | The union of a list of maps:
@@ -615,7 +614,7 @@ unionsWithKey f ts
   = foldlStrict (unionWithKey f) empty ts
 
 -- | /O(m*log(n\/m + 1)), m <= n/.
--- The expression (@'union' t1 t2@) takes the left-biased union of @t1@ and @t2@.
+-- The expression (@'union' t1 t2@) takes the left-biased union of @t1@ and @t2@. 
 -- It prefers @t1@ when duplicate keys are encountered,
 -- i.e. (@'union' == 'unionWith' 'const'@).
 union :: GCompare k => DMap k f -> DMap k f -> DMap k f
@@ -650,7 +649,7 @@ unionWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
   Difference
 --------------------------------------------------------------------}
 
--- | /O(m * log (n\/m + 1)), m <= n/. Difference of two maps.
+-- | /O(m * log (n\/m + 1)), m <= n/. Difference of two maps. 
 -- Return elements of the first map not existing in the second map.
 difference :: GCompare k => DMap k f -> DMap k g -> DMap k f
 difference Tip _   = Tip
@@ -666,7 +665,7 @@ difference t1 (Bin _ k2 _x2 l2 r2) = case split k2 t1 of
 -- | /O(n+m)/. Difference with a combining function. When two equal keys are
 -- encountered, the combining function is applied to the key and both values.
 -- If it returns 'Nothing', the element is discarded (proper set difference). If
--- it returns (@'Just' y@), the element is updated with a new value @y@.
+-- it returns (@'Just' y@), the element is updated with a new value @y@. 
 differenceWithKey :: GCompare k => (forall v. k v -> f v -> g v -> Maybe (f v)) -> DMap k f -> DMap k g -> DMap k f
 differenceWithKey _ Tip _   = Tip
 differenceWithKey _ t1 Tip  = t1
@@ -739,7 +738,7 @@ submap' f (Bin _ kx x l r) t
   where
     (lt,found,gt) = splitLookupWithKey kx t
 
--- | /O(n+m)/. Is this a proper submap? (ie. a submap but not equal).
+-- | /O(n+m)/. Is this a proper submap? (ie. a submap but not equal). 
 -- Defined as (@'isProperSubmapOf' = 'isProperSubmapOfBy' 'eqTagged'@).
 isProperSubmapOf :: (GCompare k, EqTag k f) => DMap k f -> DMap k f -> Bool
 isProperSubmapOf m1 m2
@@ -749,7 +748,7 @@ isProperSubmapOf m1 m2
  The expression (@'isProperSubmapOfBy' f m1 m2@) returns 'True' when
  @m1@ and @m2@ are not equal,
  all keys in @m1@ are in @m2@, and when @f@ returns 'True' when
- applied to their respective keys and values.
+ applied to their respective keys and values. 
 -}
 isProperSubmapOfBy :: GCompare k => (forall v. k v -> k v -> f v -> g v -> Bool) -> DMap k f -> DMap k g -> Bool
 isProperSubmapOfBy f t1 t2
@@ -871,7 +870,7 @@ mapAccumRWithKey f = go
 
 -- | /O(n*log n)/.
 -- @'mapKeysWith' c f s@ is the map obtained by applying @f@ to each key of @s@.
---
+-- 
 -- The size of the result may be smaller if @f@ maps two or more distinct
 -- keys to the same new key.  In this case the associated values will be
 -- combined using @c@.
@@ -886,8 +885,8 @@ mapKeysWith c f = fromListWithKey c . Prelude.map fFirst . toList
 -- That is, for any values @x@ and @y@, if @x@ < @y@ then @f x@ < @f y@.
 -- /The precondition is not checked./
 -- Semi-formally, we have:
---
--- > and [x < y ==> f x < f y | x <- ls, y <- ls]
+-- 
+-- > and [x < y ==> f x < f y | x <- ls, y <- ls] 
 -- >                     ==> mapKeysMonotonic f s == mapKeys f s
 -- >     where ls = keys s
 --
@@ -899,7 +898,7 @@ mapKeysMonotonic f (Bin sz k x l r) =
     Bin sz (f k) x (mapKeysMonotonic f l) (mapKeysMonotonic f r)
 
 {--------------------------------------------------------------------
-  Folds
+  Folds  
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Fold the keys and values in the map, such that
@@ -937,7 +936,7 @@ foldlWithKey' f = go
 -}
 
 {--------------------------------------------------------------------
-  List variations
+  List variations 
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Return all keys of the map in ascending order.
@@ -955,7 +954,7 @@ assocs m
   = toList m
 
 {--------------------------------------------------------------------
-  Lists
+  Lists 
   use [foldlStrict] to reduce demand on the control-stack
 --------------------------------------------------------------------}
 
@@ -963,7 +962,7 @@ assocs m
 -- If the list contains more than one value for the same key, the last value
 -- for the key is retained.
 fromList :: GCompare k => [DSum k f] -> DMap k f
-fromList xs
+fromList xs       
   = foldlStrict ins empty xs
   where
     ins :: GCompare k => DMap k f -> DSum k f -> DMap k f
@@ -971,7 +970,7 @@ fromList xs
 
 -- | /O(n*log n)/. Build a map from a list of key\/value pairs with a combining function. See also 'fromAscListWithKey'.
 fromListWithKey :: GCompare k => (forall v. k v -> f v -> f v -> f v) -> [DSum k f] -> DMap k f
-fromListWithKey f xs
+fromListWithKey f xs 
   = foldlStrict (ins f) empty xs
   where
     ins :: GCompare k => (forall v. k v -> f v -> f v -> f v) -> DMap k f -> DSum k f -> DMap k f
@@ -991,8 +990,8 @@ toDescList t  = foldlWithKey (\xs k x -> (k :=> x):xs) [] t
 
 {--------------------------------------------------------------------
   Building trees from ascending/descending lists can be done in linear time.
-
-  Note that if [xs] is ascending that:
+  
+  Note that if [xs] is ascending that: 
     fromAscList xs       == fromList xs
     fromAscListWith f xs == fromListWith f xs
 --------------------------------------------------------------------}
@@ -1006,7 +1005,7 @@ fromAscList xs
 -- | /O(n)/. Build a map from an ascending list in linear time with a
 -- combining function for equal keys.
 -- /The precondition (input list is ascending) is not checked./
-fromAscListWithKey :: GEq k => (forall v. k v -> f v -> f v -> f v) -> [DSum k f] -> DMap k f
+fromAscListWithKey :: GEq k => (forall v. k v -> f v -> f v -> f v) -> [DSum k f] -> DMap k f 
 fromAscListWithKey f xs
   = fromDistinctAscList (combineEq f xs)
   where
@@ -1032,12 +1031,12 @@ fromDistinctAscList xs
   = build const (length xs) xs
   where
     -- 1) use continutations so that we use heap space instead of stack space.
-    -- 2) special case for n==5 to build bushier trees.
-
+    -- 2) special case for n==5 to build bushier trees. 
+    
     build :: (DMap k f -> [DSum k f] -> b) -> Int -> [DSum k f] -> b
     build c 0 xs'  = c Tip xs'
     build c 5 xs'  = case xs' of
-                       ((k1:=>x1):(k2:=>x2):(k3:=>x3):(k4:=>x4):(k5:=>x5):xx)
+                       ((k1:=>x1):(k2:=>x2):(k3:=>x3):(k4:=>x4):(k5:=>x5):xx) 
                             -> c (bin k4 x4 (bin k2 x2 (singleton k1 x1) (singleton k3 x3)) (singleton k5 x5)) xx
                        _ -> error "fromDistinctAscList build"
     build c n xs'  = seq nr $ build (buildR nr c) nl xs'
@@ -1048,10 +1047,10 @@ fromDistinctAscList xs
     buildR :: Int -> (DMap k f -> [DSum k f] -> b) -> DMap k f -> [DSum k f] -> b
     buildR n c l ((k:=>x):ys) = build (buildB l k x c) n ys
     buildR _ _ _ []           = error "fromDistinctAscList buildR []"
-
+    
     buildB :: DMap k f -> k v -> f v -> (DMap k f -> a -> b) -> DMap k f -> a -> b
     buildB l k x c r zs       = c (bin k x l r) zs
-
+                      
 {--------------------------------------------------------------------
   Split
 --------------------------------------------------------------------}
@@ -1106,15 +1105,15 @@ splitLookupWithKey k = toTriple . go
       GEQ -> Triple' l (Just (kx, x)) r
 
 {--------------------------------------------------------------------
-  Eq converts the tree to a list. In a lazy setting, this
-  actually seems one of the faster methods to compare two trees
+  Eq converts the tree to a list. In a lazy setting, this 
+  actually seems one of the faster methods to compare two trees 
   and it is certainly the simplest :-)
 --------------------------------------------------------------------}
 instance EqTag k f => Eq (DMap k f) where
   t1 == t2  = (size t1 == size t2) && (toAscList t1 == toAscList t2)
 
 {--------------------------------------------------------------------
-  Ord
+  Ord 
 --------------------------------------------------------------------}
 
 instance OrdTag k f => Ord (DMap k f) where
@@ -1166,7 +1165,7 @@ showsTree showelem wide lbars rbars t
   = case t of
       Tip -> showsBars lbars . showString "|\n"
       Bin _ kx x Tip Tip
-          -> showsBars lbars . showString (showelem kx x) . showString "\n"
+          -> showsBars lbars . showString (showelem kx x) . showString "\n" 
       Bin _ kx x l r
           -> showsTree showelem wide (withBar rbars) (withEmpty rbars) r .
              showWide wide rbars .
@@ -1177,19 +1176,19 @@ showsTree showelem wide lbars rbars t
 showsTreeHang :: (forall v. k v -> f v -> String) -> Bool -> [String] -> DMap k f -> ShowS
 showsTreeHang showelem wide bars t
   = case t of
-      Tip -> showsBars bars . showString "|\n"
+      Tip -> showsBars bars . showString "|\n" 
       Bin _ kx x Tip Tip
-          -> showsBars bars . showString (showelem kx x) . showString "\n"
+          -> showsBars bars . showString (showelem kx x) . showString "\n" 
       Bin _ kx x l r
-          -> showsBars bars . showString (showelem kx x) . showString "\n" .
+          -> showsBars bars . showString (showelem kx x) . showString "\n" . 
              showWide wide bars .
              showsTreeHang showelem wide (withBar bars) l .
              showWide wide bars .
              showsTreeHang showelem wide (withEmpty bars) r
 
 showWide :: Bool -> [String] -> String -> String
-showWide wide bars
-  | wide      = showString (concat (reverse bars)) . showString "|\n"
+showWide wide bars 
+  | wide      = showString (concat (reverse bars)) . showString "|\n" 
   | otherwise = id
 
 showsBars :: [String] -> ShowS
@@ -1250,3 +1249,4 @@ foldlStrict f = go
   where
     go z []     = z
     go z (x:xs) = z `seq` go (f z x) xs
+
