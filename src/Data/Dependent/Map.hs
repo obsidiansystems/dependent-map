@@ -458,6 +458,19 @@ alter f k = k `seq` go
                        Just x' -> Bin sx kx x' l r
                        Nothing -> glue l r
 
+-- | Works the same as 'alter' except the new value is return in some 'Functor' @f@.
+-- In short : @(\v' -> alter (const v') k dm) <$> f (lookup k dm)@
+alterF :: forall k f v g. (GCompare  k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> DMap k g -> f (DMap k g)
+alterF k f = go
+  where
+    go :: DMap k g -> f (DMap k g)
+    go Tip = maybe Tip (singleton k) <$> f Nothing
+
+    go (Bin sx kx x l r) = case gcompare k kx of
+      GLT -> (\l' -> balance kx x l' r) <$> go l
+      GGT -> (\r' -> balance kx x l r') <$> go r
+      GEQ -> maybe (glue l r) (\x' -> Bin sx kx x' l r) <$> f (Just x)
+
 {--------------------------------------------------------------------
   Indexing
 --------------------------------------------------------------------}
