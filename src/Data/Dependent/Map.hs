@@ -47,6 +47,7 @@ module Data.Dependent.Map
     , updateWithKey
     , updateLookupWithKey
     , alter
+    , alterF
 
     -- * Combine
 
