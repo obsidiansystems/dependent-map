@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.2.5.0
+version:                0.2.5.1
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -32,7 +32,8 @@ source-repository head
 Library
   hs-source-dirs:       src
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
-  exposed-modules:      Data.Dependent.Map
+  exposed-modules:      Data.Dependent.Map,
+                        Data.Dependent.Map.Lens
   other-modules:        Data.Dependent.Map.Internal,
                         Data.Dependent.Map.PtrEquality
   if impl(ghc < 7.8)
