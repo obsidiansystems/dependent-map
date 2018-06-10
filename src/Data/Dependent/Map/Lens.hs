@@ -48,6 +48,7 @@ import           Data.GADT.Compare   (GCompare)
 --
 dmat :: (GCompare k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> DMap k g -> f (DMap k g)
 dmat k f = alterF k f
+{-# INLINE dmat #-}
 
 -- |
 -- This is equivalent to the <https://hackage.haskell.org/package/lens-4.16.1/docs/Control-Lens-At.html#v:ix ix> <https://hackage.haskell.org/package/lens-4.16.1/docs/Control-Lens-Type.html#t:Traversal-39- Traversal'> from <https://hackage.haskell.org/package/lens-4.16.1/docs/Control-Lens-At.html Control.Lens.At>:
@@ -83,3 +84,4 @@ dmat k f = alterF k f
 -- Nothing
 dmix :: (GCompare k, Applicative f) => k v -> (g v -> f (g v)) -> DMap k g -> f (DMap k g)
 dmix k f dmap = maybe (pure dmap) (fmap (flip (insert k) dmap) . f) $ lookup k dmap
+{-# INLINE dmix #-}
