@@ -33,9 +33,9 @@ Library
   hs-source-dirs:       src
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
   exposed-modules:      Data.Dependent.Map,
-                        Data.Dependent.Map.Lens
-  other-modules:        Data.Dependent.Map.Internal,
-                        Data.Dependent.Map.PtrEquality
+                        Data.Dependent.Map.Lens,
+                        Data.Dependent.Map.Internal
+  other-modules:        Data.Dependent.Map.PtrEquality
   if impl(ghc < 7.8)
     other-modules:      Data.Dependent.Map.Typeable
   if impl(ghc < 8)
