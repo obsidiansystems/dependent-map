@@ -8,6 +8,8 @@
 #endif
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 #endif
 module Data.Dependent.Map
     ( DMap
@@ -151,7 +153,9 @@ import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
 #endif
 
 import Data.Dependent.Sum
+import Data.Constraint.Extras
 import Data.GADT.Compare
+import Data.GADT.Show
 import Data.Maybe (isJust)
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
@@ -717,8 +721,11 @@ intersectionWithKey f (Bin s1 k1 x1 l1 r1) t2 =
 -- | /O(n+m)/.
 -- This function is defined as (@'isSubmapOf' = 'isSubmapOfBy' 'eqTagged')@).
 --
-isSubmapOf :: (GCompare k, EqTag k f) => DMap k f -> DMap k f -> Bool
-isSubmapOf m1 m2 = isSubmapOfBy eqTagged m1 m2
+isSubmapOf
+  :: forall k f
+  .  (GCompare k, Has (ComposeC Eq f) k)
+  => DMap k f -> DMap k f -> Bool
+isSubmapOf m1 m2 = isSubmapOfBy (\k _ x0 x1 -> has @(ComposeC Eq f) k (x0 == x1)) m1 m2
 
 {- | /O(n+m)/.
  The expression (@'isSubmapOfBy' f t1 t2@) returns 'True' if
@@ -741,9 +748,12 @@ submap' f (Bin _ kx x l r) t
 
 -- | /O(n+m)/. Is this a proper submap? (ie. a submap but not equal).
 -- Defined as (@'isProperSubmapOf' = 'isProperSubmapOfBy' 'eqTagged'@).
-isProperSubmapOf :: (GCompare k, EqTag k f) => DMap k f -> DMap k f -> Bool
+isProperSubmapOf
+  :: forall k f
+  .  (GCompare k, Has (ComposeC Eq f) k)
+  => DMap k f -> DMap k f -> Bool
 isProperSubmapOf m1 m2
-  = isProperSubmapOfBy eqTagged m1 m2
+  = isProperSubmapOfBy (\k _ x0 x1 -> has @(ComposeC Eq f) k (x0 == x1)) m1 m2
 
 {- | /O(n+m)/. Is this a proper submap? (ie. a submap but not equal).
  The expression (@'isProperSubmapOfBy' f m1 m2@) returns 'True' when
@@ -1110,21 +1120,21 @@ splitLookupWithKey k = toTriple . go
   actually seems one of the faster methods to compare two trees
   and it is certainly the simplest :-)
 --------------------------------------------------------------------}
-instance EqTag k f => Eq (DMap k f) where
+instance (GEq k, Has (ComposeC Eq f) k) => Eq (DMap k f) where
   t1 == t2  = (size t1 == size t2) && (toAscList t1 == toAscList t2)
 
 {--------------------------------------------------------------------
   Ord
 --------------------------------------------------------------------}
 
-instance OrdTag k f => Ord (DMap k f) where
-    compare m1 m2 = compare (toAscList m1) (toAscList m2)
+instance (GCompare k, Has (ComposeC Eq f) k, Has (ComposeC Ord f) k) => Ord (DMap k f) where
+  compare m1 m2 = compare (toAscList m1) (toAscList m2)
 
 {--------------------------------------------------------------------
   Read
 --------------------------------------------------------------------}
 
-instance (GCompare k, ReadTag k f) => Read (DMap k f) where
+instance (GCompare k, GRead k, Has (ComposeC Read f) k) => Read (DMap k f) where
   readPrec = parens $ prec 10 $ do
     Ident "fromList" <- lexP
     xs <- readPrec
@@ -1135,7 +1145,7 @@ instance (GCompare k, ReadTag k f) => Read (DMap k f) where
 {--------------------------------------------------------------------
   Show
 --------------------------------------------------------------------}
-instance ShowTag k f => Show (DMap k f) where
+instance (GShow k, Has (ComposeC Show f) k) => Show (DMap k f) where
     showsPrec p m = showParen (p>10)
         ( showString "fromList "
         . showsPrec 11 (toList m)
@@ -1143,11 +1153,11 @@ instance ShowTag k f => Show (DMap k f) where
 
 -- | /O(n)/. Show the tree that implements the map. The tree is shown
 -- in a compressed, hanging format. See 'showTreeWith'.
-showTree :: ShowTag k f => DMap k f -> String
+showTree :: (GShow k, Has (ComposeC Show f) k) => DMap k f -> String
 showTree m
   = showTreeWith showElem True False m
   where
-    showElem :: ShowTag k f => k v -> f v -> String
+    showElem :: (GShow k, Has (ComposeC Show f) k) => k v -> f v -> String
     showElem k x  = show (k :=> x)
 
 

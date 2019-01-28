@@ -42,6 +42,7 @@ Library
     build-depends:      semigroups
   build-depends:        base >= 3 && < 5,
                         containers,
-                        dependent-sum >= 0.3.2
+                        dependent-sum >= 0.3.2,
+                        constraints-extras >= 0.2.3.0 && < 0.3
   if impl(ghc >= 7.2) && impl(ghc < 7.8)
     ghc-options:        -trust base -trust dependent-sum
