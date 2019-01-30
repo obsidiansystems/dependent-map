@@ -251,7 +251,7 @@ deleteFindMax t
   [ratio] is the ratio between an outer and inner sibling of the
           heavier subtree in an unbalanced setting. It determines
           whether a double or single rotation should be performed
-          to restore balance. It is correspondes with the inverse
+          to restore balance. It corresponds with the inverse
           of $\alpha$ in Adam's article.
 
   Note that:
@@ -267,7 +267,7 @@ deleteFindMax t
     [delta] may perform better than smaller one.
 
   Note: in contrast to Adam's paper, we use a ratio of (at least) [2]
-  to decide whether a single or double rotation is needed. Allthough
+  to decide whether a single or double rotation is needed. Although
   he actually proves that this ratio is needed to maintain the
   invariants, his implementation uses an invalid ratio of [1].
 --------------------------------------------------------------------}
