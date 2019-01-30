@@ -19,10 +19,10 @@ import Data.Some
 import Data.Typeable (Typeable)
 #endif
 
--- |Dependent maps: 'k' is a GADT-like thing with a facility for 
+-- |Dependent maps: 'k' is a GADT-like thing with a facility for
 -- rediscovering its type parameter, elements of which function as identifiers
 -- tagged with the type of the thing they identify.  Real GADTs are one
--- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the 
+-- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the
 -- 'prim-uniq' package.
 --
 -- Semantically, @'DMap' k f@ is equivalent to a set of @'DSum' k f@ where no two
@@ -84,7 +84,7 @@ lookup k = k `seq` go
     where
         go :: DMap k f -> Maybe (f v)
         go Tip = Nothing
-        go (Bin _ kx x l r) = 
+        go (Bin _ kx x l r) =
             case gcompare k kx of
                 GLT -> go l
                 GGT -> go r
@@ -105,7 +105,7 @@ lookupAssoc (This k) = k `seq` go
   Utility functions that maintain the balance properties of the tree.
   All constructors assume that all values in [l] < [k] and all values
   in [r] > [k], and that [l] and [r] are valid trees.
-  
+
   In order of sophistication:
     [Bin sz k x l r]  The type constructor.
     [bin k x l r]     Maintains the correct size, assumes that both [l]
@@ -113,7 +113,7 @@ lookupAssoc (This k) = k `seq` go
     [balance k x l r] Restores the balance and size.
                       Assumes that the original tree was balanced and
                       that [l] or [r] has changed by at most one element.
-    [combine k x l r] Restores balance and size. 
+    [combine k x l r] Restores balance and size.
 
   Furthermore, we can construct a new tree from two trees. Both operations
   assume that all values in [l] < all values in [r] and that [l] and [r]
@@ -123,10 +123,10 @@ lookupAssoc (This k) = k `seq` go
     [merge l r]       Merges two trees and restores balance.
 
   Note: in contrast to Adam's paper, we use (<=) comparisons instead
-  of (<) comparisons in [combine], [merge] and [balance]. 
-  Quickcheck (on [difference]) showed that this was necessary in order 
-  to maintain the invariants. It is quite unsatisfactory that I haven't 
-  been able to find out why this is actually the case! Fortunately, it 
+  of (<) comparisons in [combine], [merge] and [balance].
+  Quickcheck (on [difference]) showed that this was necessary in order
+  to maintain the invariants. It is quite unsatisfactory that I haven't
+  been able to find out why this is actually the case! Fortunately, it
   doesn't hurt to be a bit more conservative.
 --------------------------------------------------------------------}
 
@@ -149,13 +149,13 @@ insertMax kx x t
       Tip -> singleton kx x
       Bin _ ky y l r
           -> balance ky y l (insertMax kx x r)
-             
+
 insertMin kx x t
   = case t of
       Tip -> singleton kx x
       Bin _ ky y l r
           -> balance ky y (insertMin kx x l) r
-             
+
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
 --------------------------------------------------------------------}
@@ -174,13 +174,13 @@ merge l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
 glue :: DMap k f -> DMap k f -> DMap k f
 glue Tip r = r
 glue l Tip = l
-glue l r   
+glue l r
   | size l > size r = case deleteFindMax l of (km :=> m,l') -> balance km m l' r
   | otherwise       = case deleteFindMin r of (km :=> m,r') -> balance km m l r'
 
 -- | /O(log n)/. Delete and find the minimal element.
 --
--- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")]) 
+-- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")])
 -- > deleteFindMin                                            Error: can not return the minimal element of an empty map
 
 deleteFindMin :: DMap k f -> (DSum k f, DMap k f)
@@ -257,7 +257,7 @@ deleteFindMax t
   Note that:
   - [delta] should be larger than 4.646 with a [ratio] of 2.
   - [delta] should be larger than 3.745 with a [ratio] of 1.534.
-  
+
   - A lower [delta] leads to a more 'perfectly' balanced tree.
   - A higher [delta] performs less rebalancing.
 
@@ -349,7 +349,7 @@ trim cmplo cmphi t@(Bin _ kx _ l r)
               GT -> t
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
-              
+
 trimLookupLo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
 trimLookupLo _  _     Tip = (Nothing,Tip)
 trimLookupLo lo cmphi t@(Bin _ kx x l r)
