@@ -15,7 +15,7 @@ module Data.Dependent.Map
     , GCompare(..), GOrdering(..)
     
     -- * Operators
-    , (!), (\\)
+    , (!), (\\), (==>)
 
     -- * Query
     , null
