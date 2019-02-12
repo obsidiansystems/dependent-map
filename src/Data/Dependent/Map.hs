@@ -254,11 +254,11 @@ insert kx x = kx `seq` go
             GLT -> let !l' = go l
                    in if l' `ptrEq` l
                       then t
-                      else balance ky y l' r
+                      else Bin' $! balance ky y l' r
             GGT -> let !r' = go r
                    in if r' `ptrEq` r
                       then t
-                      else balance ky y l r'
+                      else Bin' $! balance ky y l r'
             GEQ
               | kx `ptrEq` ky && x `ptrEq` y -> t
               | otherwise -> Bin sz kx x l r
@@ -275,11 +275,11 @@ insertR kx x = kx `seq` go
             GLT -> let !l' = go l
                    in if l' `ptrEq` l
                       then t
-                      else balance ky y l' r
+                      else Bin' $! balance ky y l' r
             GGT -> let !r' = go r
                    in if r' `ptrEq` r
                    then t
-                   else balance ky y l r'
+                   else Bin' $! balance ky y l r'
             GEQ -> t
 
 -- | /O(log n)/. Insert with a function, combining new value and old value.
@@ -308,8 +308,8 @@ insertWithKey f kx x = kx `seq` go
     go Tip = singleton kx x
     go (Bin sy ky y l r) =
         case gcompare kx ky of
-            GLT -> balance ky y (go l) r
-            GGT -> balance ky y l (go r)
+            GLT -> Bin' $! balance ky y (go l) r
+            GGT -> Bin' $! balance ky y l (go r)
             GEQ -> Bin sy kx (f kx x y) l r
 
 -- | Same as 'insertWithKey', but the combining function is applied strictly.
@@ -320,8 +320,8 @@ insertWithKey' f kx x = kx `seq` go
     go Tip = singleton kx $! x
     go (Bin sy ky y l r) =
         case gcompare kx ky of
-            GLT -> balance ky y (go l) r
-            GGT -> balance ky y l (go r)
+            GLT -> Bin' $! balance ky y (go l) r
+            GGT -> Bin' $! balance ky y l (go r)
             GEQ -> let x' = f kx x y in seq x' (Bin sy kx x' l r)
 
 -- | /O(log n)/. Combines insert operation with old value retrieval.
@@ -337,9 +337,9 @@ insertLookupWithKey f kx x = kx `seq` go
     go (Bin sy ky y l r) =
         case gcompare kx ky of
             GLT -> let (found, l') = go l
-                  in (found, balance ky y l' r)
+                  in (found, Bin' $! balance ky y l' r)
             GGT -> let (found, r') = go r
-                  in (found, balance ky y l r')
+                  in (found, Bin' $! balance ky y l r')
             GEQ -> (Just y, Bin sy kx (f kx x y) l r)
 
 -- | /O(log n)/. A strict version of 'insertLookupWithKey'.
@@ -352,9 +352,9 @@ insertLookupWithKey' f kx x = kx `seq` go
     go (Bin sy ky y l r) =
         case gcompare kx ky of
             GLT -> let (found, l') = go l
-                  in (found, balance ky y l' r)
+                  in (found, Bin' $! balance ky y l' r)
             GGT -> let (found, r') = go r
-                  in (found, balance ky y l r')
+                  in (found, Bin' $! balance ky y l r')
             GEQ -> let x' = f kx x y in x' `seq` (Just y, Bin sy kx x' l r)
 
 {--------------------------------------------------------------------
@@ -371,8 +371,8 @@ delete k = k `seq` go
     go Tip = Tip
     go (Bin _ kx x l r) =
         case gcompare k kx of
-            GLT -> balance kx x (go l) r
-            GGT -> balance kx x l (go r)
+            GLT -> Bin' $! balance kx x (go l) r
+            GGT -> Bin' $! balance kx x l (go r)
             GEQ -> glue l r
 
 -- | /O(log n)/. Update a value at a specific key with the result of the provided function.
@@ -423,8 +423,8 @@ updateWithKey f k = k `seq` go
     go Tip = Tip
     go (Bin sx kx x l r) =
         case gcompare k kx of
-           GLT -> balance kx x (go l) r
-           GGT -> balance kx x l (go r)
+           GLT -> Bin' $! balance kx x (go l) r
+           GGT -> Bin' $! balance kx x l (go r)
            GEQ -> case f kx x of
                    Just x' -> Bin sx kx x' l r
                    Nothing -> glue l r
@@ -439,8 +439,8 @@ updateLookupWithKey f k = k `seq` go
    go Tip = (Nothing,Tip)
    go (Bin sx kx x l r) =
           case gcompare k kx of
-               GLT -> let (found,l') = go l in (found,balance kx x l' r)
-               GGT -> let (found,r') = go r in (found,balance kx x l r')
+               GLT -> let (found,l') = go l in (found,Bin' $! balance kx x l' r)
+               GGT -> let (found,r') = go r in (found,Bin' $! balance kx x l r')
                GEQ -> case f kx x of
                        Just x' -> (Just x',Bin sx kx x' l r)
                        Nothing -> (Just x,glue l r)
@@ -457,8 +457,8 @@ alter f k = k `seq` go
                Just x  -> singleton k x
 
     go (Bin sx kx x l r) = case gcompare k kx of
-               GLT -> balance kx x (go l) r
-               GGT -> balance kx x l (go r)
+               GLT -> Bin' $! balance kx x (go l) r
+               GGT -> Bin' $! balance kx x l (go r)
                GEQ -> case f (Just x) of
                        Just x' -> Bin sx kx x' l r
                        Nothing -> glue l r
@@ -472,8 +472,8 @@ alterF k f = go
     go Tip = maybe Tip (singleton k) <$> f Nothing
 
     go (Bin sx kx x l r) = case gcompare k kx of
-      GLT -> (\l' -> balance kx x l' r) <$> go l
-      GGT -> (\r' -> balance kx x l r') <$> go r
+      GLT -> (\l' -> Bin' $! balance kx x l' r) <$> go l
+      GGT -> (\r' -> Bin' $! balance kx x l r') <$> go r
       GEQ -> maybe (glue l r) (\x' -> Bin sx kx x' l r) <$> f (Just x)
 
 {--------------------------------------------------------------------
@@ -521,8 +521,8 @@ updateAt f i0 t = i0 `seq` go i0 t
  where
     go _ Tip  = Tip
     go i (Bin sx kx x l r) = case compare i sizeL of
-      LT -> balance kx x (go i l) r
-      GT -> balance kx x l (go (i-sizeL-1) r)
+      LT -> Bin' $! balance kx x (go i l) r
+      GT -> Bin' $! balance kx x l (go (i-sizeL-1) r)
       EQ -> case f kx x of
               Just x' -> Bin sx kx x' l r
               Nothing -> glue l r
@@ -573,13 +573,13 @@ lookupMax m = case m of
 -- | /O(log n)/. Delete the minimal key. Returns an empty map if the map is empty.
 deleteMin :: DMap k f -> DMap k f
 deleteMin (Bin _ _  _ Tip r)  = r
-deleteMin (Bin _ kx x l r)    = balance kx x (deleteMin l) r
+deleteMin (Bin _ kx x l r)    = Bin' $! balance kx x (deleteMin l) r
 deleteMin Tip                 = Tip
 
 -- | /O(log n)/. Delete the maximal key. Returns an empty map if the map is empty.
 deleteMax :: DMap k f -> DMap k f
 deleteMax (Bin _ _  _ l Tip)  = l
-deleteMax (Bin _ kx x l r)    = balance kx x l (deleteMax r)
+deleteMax (Bin _ kx x l r)    = Bin' $! balance kx x l (deleteMax r)
 deleteMax Tip                 = Tip
 
 -- | /O(log n)/. Update the value at the minimal key.
@@ -589,7 +589,7 @@ updateMinWithKey f = go
     go (Bin sx kx x Tip r) = case f kx x of
                                   Nothing -> r
                                   Just x' -> Bin sx kx x' Tip r
-    go (Bin _ kx x l r)    = balance kx x (go l) r
+    go (Bin _ kx x l r)    = Bin' $! balance kx x (go l) r
     go Tip                 = Tip
 
 -- | /O(log n)/. Update the value at the maximal key.
@@ -599,7 +599,7 @@ updateMaxWithKey f = go
     go (Bin sx kx x l Tip) = case f kx x of
                               Nothing -> l
                               Just x' -> Bin sx kx x' l Tip
-    go (Bin _ kx x l r)    = balance kx x l (go r)
+    go (Bin _ kx x l r)    = Bin' $! balance kx x l (go r)
     go Tip                 = Tip
 
 {--------------------------------------------------------------------
@@ -630,7 +630,7 @@ union (Bin _ kx x Tip Tip) t2 = insert kx x t2
 union t1@(Bin _ k1 x1 l1 r1) t2 = case split k1 t2 of
   (l2, r2)
     | l1 `ptrEq` l1l2 && r1 `ptrEq` r1r2 -> t1
-    | otherwise -> combine k1 x1 l1l2 r1r2
+    | otherwise -> Bin' $! combine k1 x1 l1l2 r1r2
     where !l1l2 = l1 `union` l2
           !r1r2 = r1 `union` r2
 
@@ -645,8 +645,8 @@ unionWithKey _ t1 Tip  = t1
 unionWithKey _ Tip t2  = t2
 unionWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
   (l2, mx2, r2) -> case mx2 of
-      Nothing -> combine k1 x1 l1l2 r1r2
-      Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
+      Nothing -> Bin' $! combine k1 x1 l1l2 r1r2
+      Just x2 -> Bin' $! combine k1 (f k1 x1 x2) l1l2 r1r2
     where !l1l2 = unionWithKey f l1 l2
           !r1r2 = unionWithKey f r1 r2
 
@@ -676,10 +676,10 @@ differenceWithKey _ Tip _   = Tip
 differenceWithKey _ t1 Tip  = t1
 differenceWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
   (l2, mx2, r2) -> case mx2 of
-      Nothing -> combine k1 x1 l1l2 r1r2
+      Nothing -> Bin' $! combine k1 x1 l1l2 r1r2
       Just x2 -> case f k1 x1 x2 of
         Nothing -> merge l1l2 r1r2
-        Just x1x2 -> combine k1 x1x2 l1l2 r1r2
+        Just x1x2 -> Bin' $! combine k1 x1x2 l1l2 r1r2
     where !l1l2 = differenceWithKey f l1 l2
           !r1r2 = differenceWithKey f r1 r2
 
@@ -700,7 +700,7 @@ intersection t1@(Bin s1 k1 x1 l1 r1) t2 =
   in if found
      then if l1l2 `ptrEq` l1 && r1r2 `ptrEq` r1
           then t1
-          else combine k1 x1 l1l2 r1r2
+          else Bin' $! combine k1 x1 l1l2 r1r2
      else merge l1l2 r1r2
 
 -- | /O(m * log (n\/m + 1), m <= n/. Intersection with a combining function.
@@ -713,7 +713,7 @@ intersectionWithKey f (Bin s1 k1 x1 l1 r1) t2 =
       !r1r2 = intersectionWithKey f r1 r2
   in case found of
        Nothing -> merge l1l2 r1r2
-       Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
+       Just x2 -> Bin' $! combine k1 (f k1 x1 x2) l1l2 r1r2
 
 {--------------------------------------------------------------------
   Submap
@@ -777,7 +777,7 @@ filterWithKey p = go
     go t@(Bin _ kx x l r)
       | p kx x    = if l' `ptrEq` l && r' `ptrEq` r
                     then t
-                    else combine kx x l' r'
+                    else Bin' $! combine kx x l' r'
       | otherwise = merge l' r'
       where !l' = go l
             !r' = go r
@@ -791,8 +791,8 @@ partitionWithKey p0 m0 = toPair (go p0 m0)
     go :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f :*: DMap k f)
     go _ Tip = (Tip :*: Tip)
     go p (Bin _ kx x l r)
-      | p kx x    = (combine kx x l1 r1 :*: merge l2 r2)
-      | otherwise = (merge l1 r1 :*: combine kx x l2 r2)
+      | p kx x    = ((Bin' $! combine kx x l1 r1) :*: merge l2 r2)
+      | otherwise = (merge l1 r1 :*: (Bin' $! combine kx x l2 r2))
       where
         (l1 :*: l2) = go p l
         (r1 :*: r2) = go p r
@@ -807,7 +807,7 @@ mapMaybeWithKey f = go
   where
     go Tip = Tip
     go (Bin _ kx x l r) = case f kx x of
-        Just y  -> combine kx y (go l) (go r)
+        Just y  -> Bin' $! combine kx y (go l) (go r)
         Nothing -> merge (go l) (go r)
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
@@ -820,8 +820,8 @@ mapEitherWithKey f0 = toPair . go f0
        -> DMap k f -> (DMap k g :*: DMap k h)
     go _ Tip = (Tip :*: Tip)
     go f (Bin _ kx x l r) = case f kx x of
-      Left y  -> (combine kx y l1 r1 :*: merge l2 r2)
-      Right z -> (merge l1 r1 :*: combine kx z l2 r2)
+      Left y  -> ((Bin' $! combine kx y l1 r1) :*: merge l2 r2)
+      Right z -> (merge l1 r1 :*: (Bin' $! combine kx z l2 r2))
       where
         (l1,l2) = mapEitherWithKey f l
         (r1,r2) = mapEitherWithKey f r
@@ -1075,8 +1075,8 @@ split k = toPair . go
     go :: DMap k f -> (DMap k f :*: DMap k f)
     go Tip              = (Tip :*: Tip)
     go (Bin _ kx x l r) = case gcompare k kx of
-          GLT -> let !(lt :*: gt) = go l in (lt :*: combine kx x gt r)
-          GGT -> let !(lt :*: gt) = go r in (combine kx x l lt :*: gt)
+          GLT -> let !(lt :*: gt) = go l in (lt :*: (Bin' $! combine kx x gt r))
+          GGT -> let !(lt :*: gt) = go r in ((Bin' $! combine kx x l lt) :*: gt)
           GEQ -> (l :*: r)
 {-# INLINABLE split #-}
 
@@ -1088,8 +1088,8 @@ splitLookup k = toTriple . go
     go :: DMap k f -> Triple' (DMap k f) (Maybe (f v)) (DMap k f)
     go Tip              = Triple' Tip Nothing Tip
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
       GEQ -> Triple' l (Just x) r
 
 -- | /O(log n)/. The expression (@'splitMember' k map@) splits a map just
@@ -1100,8 +1100,8 @@ splitMember k = toTriple . go
     go :: DMap k f -> Triple' (DMap k f) Bool (DMap k f)
     go Tip              = Triple' Tip False Tip
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
       GEQ -> Triple' l True r
 
 -- | /O(log n)/.
@@ -1111,8 +1111,8 @@ splitLookupWithKey k = toTriple . go
     go :: DMap k f -> Triple' (DMap k f) (Maybe (k v, f v)) (DMap k f)
     go Tip              = Triple' Tip Nothing Tip
     go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
       GEQ -> Triple' l (Just (kx, x)) r
 
 {--------------------------------------------------------------------
