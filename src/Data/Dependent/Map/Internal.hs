@@ -23,10 +23,10 @@ import Data.Some
 import Data.Typeable (Typeable)
 #endif
 
--- |Dependent maps: 'k' is a GADT-like thing with a facility for 
+-- |Dependent maps: 'k' is a GADT-like thing with a facility for
 -- rediscovering its type parameter, elements of which function as identifiers
 -- tagged with the type of the thing they identify.  Real GADTs are one
--- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the 
+-- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the
 -- 'prim-uniq' package.
 --
 -- Semantically, @'DMap' k f@ is equivalent to a set of @'DSum' k f@ where no two
@@ -55,6 +55,16 @@ data NonEmptyDMap k f where
 #if MIN_VERSION_base(4,7,0)
     deriving Typeable
 #endif
+
+nonEmpty :: DMap k f -> Maybe (NonEmptyDMap k f)
+nonEmpty = \case
+    Tip -> Nothing
+    Bin' ne -> Just ne
+
+fromNonEmpty :: Maybe (NonEmptyDMap k f) -> DMap k f
+fromNonEmpty = \case
+    Nothing -> Tip
+    Just ne -> Bin' ne
 
 {--------------------------------------------------------------------
   Construction
@@ -138,7 +148,7 @@ lookupAssoc (This k) m = (k :=>) <$> lookup k m
   Utility functions that maintain the balance properties of the tree.
   All constructors assume that all values in [l] < [k] and all values
   in [r] > [k], and that [l] and [r] are valid trees.
-  
+
   In order of sophistication:
     [Bin' sz k x l r]  The type constructor.
     [bin k x l r]     Maintains the correct size, assumes that both [l]
@@ -146,7 +156,7 @@ lookupAssoc (This k) m = (k :=>) <$> lookup k m
     [balance k x l r] Restores the balance and size.
                       Assumes that the original tree was balanced and
                       that [l] or [r] has changed by at most one element.
-    [combine k x l r] Restores balance and size. 
+    [combine k x l r] Restores balance and size.
 
   Furthermore, we can construct a new tree from two trees. Both operations
   assume that all values in [l] < all values in [r] and that [l] and [r]
@@ -156,10 +166,10 @@ lookupAssoc (This k) m = (k :=>) <$> lookup k m
     [merge l r]       Merges two trees and restores balance.
 
   Note: in contrast to Adam's paper, we use (<=) comparisons instead
-  of (<) comparisons in [combine], [merge] and [balance]. 
-  Quickcheck (on [difference]) showed that this was necessary in order 
-  to maintain the invariants. It is quite unsatisfactory that I haven't 
-  been able to find out why this is actually the case! Fortunately, it 
+  of (<) comparisons in [combine], [merge] and [balance].
+  Quickcheck (on [difference]) showed that this was necessary in order
+  to maintain the invariants. It is quite unsatisfactory that I haven't
+  been able to find out why this is actually the case! Fortunately, it
   doesn't hurt to be a bit more conservative.
 --------------------------------------------------------------------}
 
@@ -195,7 +205,7 @@ insertMax, insertMin :: k v -> f v -> DMap k f -> NonEmptyDMap k f
 insertMax kx x t  = case t of
     Tip -> singletonNE kx x
     Bin' ne -> insertMaxNE kx x ne
-             
+
 insertMin kx x t = case t of
     Tip -> singletonNE kx x
     Bin' ne -> insertMinNE kx x ne
@@ -227,7 +237,7 @@ merge (Bin' l) (Bin' r) = Bin' $! mergeNE l r
   Assumes that [l] and [r] are already balanced with respect to each other.
 --------------------------------------------------------------------}
 glueNE :: NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
-glueNE l r 
+glueNE l r
     | sizeNE l > sizeNE r = case deleteFindMax l of
         (km :=> m, l') -> balanceNER km m l' r
     | otherwise = case deleteFindMin r of
@@ -240,7 +250,7 @@ glue (Bin' l) (Bin' r) = Bin' $! glueNE l r
 
 -- | /O(log n)/. Delete and find the minimal element.
 --
--- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")]) 
+-- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")])
 -- > deleteFindMin                                            Error: can not return the minimal element of an empty map
 
 deleteFindMin :: NonEmptyDMap k f -> (DSum k f, DMap k f)
@@ -321,7 +331,7 @@ deleteFindMax = maxViewWithKeyNE
   Note that:
   - [delta] should be larger than 4.646 with a [ratio] of 2.
   - [delta] should be larger than 3.745 with a [ratio] of 1.534.
-  
+
   - A lower [delta] leads to a more 'perfectly' balanced tree.
   - A higher [delta] performs less rebalancing.
 
@@ -467,7 +477,7 @@ trim cmplo cmphi t@(Bin _ kx _ l r)
               GT -> t
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
-              
+
 trimLookupLo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
 trimLookupLo _  _     Tip = (Nothing,Tip)
 trimLookupLo lo cmphi t@(Bin _ kx x l r)
