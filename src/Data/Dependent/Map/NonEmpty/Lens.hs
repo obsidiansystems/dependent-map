@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 -- |
--- Some functions for using lenses with 'DMap'.
-module Data.Dependent.Map.Lens
+-- Some functions for using lenses with 'NonEmptyDMap'.
+module Data.Dependent.Map.NonEmpty.Lens
   ( -- * At
     dmat
     -- * Ix
@@ -15,12 +15,12 @@ import           Prelude             hiding (lookup)
 import           Control.Applicative (Applicative (pure))
 #endif
 
-import           Data.Dependent.Map  (DMap, alterF, adjustF)
+import           Data.Dependent.Map.NonEmpty (NonEmptyDMap, adjustF, alterF)
 
 import           Data.GADT.Compare   (GCompare)
 
 -- |
--- These functions have been specialised for use with 'DMap' but without any of the
+-- These functions have been specialised for use with 'NonEmptyDMap' but without any of the
 -- specific 'lens' types used so that we have compatilibity without needing the
 -- dependency just for these functions.
 --
@@ -37,16 +37,16 @@ import           Data.GADT.Compare   (GCompare)
 -- So the type of 'dmat' is equivalent to:
 --
 -- @
--- dmat :: GCompare k => Lens' (DMap k f) (Maybe (f v))
+-- dmat :: GCompare k => Lens' (NonEmptyDMap k f) (Maybe (f v))
 -- @
 --
--- >>> DMap.fromList [AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmat AString ?~ "Hat"
--- DMap.fromList [AString :=> Identity "Hat", AInt :=> Identity 33, AFloat :=> Identity 3.5]
+-- >>> NonEmptyDMap.fromList [AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmat AString ?~ "Hat"
+-- NonEmptyDMap.fromList [AString :=> Identity "Hat", AInt :=> Identity 33, AFloat :=> Identity 3.5]
 --
--- >>> DMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] ^? dmat AFloat
+-- >>> NonEmptyDMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] ^? dmat AFloat
 -- Just (AFloat :=> 3.5)
 --
-dmat :: (GCompare k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> DMap k g -> f (DMap k g)
+dmat :: (GCompare k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> NonEmptyDMap k g -> f (Maybe (NonEmptyDMap k g))
 dmat k f = alterF k f
 {-# INLINE dmat #-}
 
@@ -62,7 +62,7 @@ dmat k f = alterF k f
 -- So the type of 'dmix' is equivalent to:
 --
 -- @
--- dmix :: GCompare k => k v -> Traversal' (DMap k f) (f v)
+-- dmix :: GCompare k => k v -> Traversal' (NonEmptyDMap k f) (f v)
 -- @
 --
 -- /NB:/ Setting the value of this
@@ -71,17 +71,17 @@ dmat k f = alterF k f
 --
 -- If you want to be able to insert /missing/ values, you want 'dmat'.
 --
--- >>> DMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmix AInt %~ f
--- DMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity (f 33), AFloat :=> Identity 3.5]
+-- >>> NonEmptyDMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmix AInt %~ f
+-- NonEmptyDMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity (f 33), AFloat :=> Identity 3.5]
 --
--- >>> DMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmix AString .~ "Hat"
--- DMap.fromList [AString :=> Identity "Hat", AInt :=> Identity 33, AFloat :=> Identity 3.5]
+-- >>> NonEmptyDMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] & dmix AString .~ "Hat"
+-- NonEmptyDMap.fromList [AString :=> Identity "Hat", AInt :=> Identity 33, AFloat :=> Identity 3.5]
 --
--- >>> DMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] ^? dmix AFloat
+-- >>> NonEmptyDMap.fromList [AString :=> Identity "Shoe", AInt :=> Identity 33, AFloat :=> Identity 3.5] ^? dmix AFloat
 -- Just (AFloat :=> 3.5)
 --
--- >>> DMap.fromList [AString :=> Identity "Shoe", AFloat :=> Identity 3.5] ^? dmix AInt
+-- >>> NonEmptyDMap.fromList [AString :=> Identity "Shoe", AFloat :=> Identity 3.5] ^? dmix AInt
 -- Nothing
-dmix :: (GCompare k, Applicative f) => k v -> (g v -> f (g v)) -> DMap k g -> f (DMap k g)
+dmix :: (GCompare k, Applicative f) => k v -> (g v -> f (g v)) -> NonEmptyDMap k g -> f (NonEmptyDMap k g)
 dmix = adjustF
 {-# INLINE dmix #-}

@@ -179,6 +179,27 @@ makeDelete k = (k `seq` go, k `seq` nonEmpty . go')
             GGT -> Bin' $! balance kx x l (go r)
             GEQ -> glue l r
 
+makeAdjustF
+  :: forall f k v g
+  .  (GCompare k, Applicative f)
+  => (g v -> f (g v))
+  -> k v
+  -> ( DMap k g -> f (DMap k g)
+     , NonEmptyDMap k g -> f (NonEmptyDMap k g)
+     )
+makeAdjustF f k = (k `seq` go, k `seq` go')
+  where
+    go :: DMap k g -> f (DMap k g)
+    go Tip = pure Tip
+    go (Bin' ne) = Bin' <$> go' ne
+
+    go' :: NonEmptyDMap k g -> f (NonEmptyDMap k g)
+    go' (NonEmptyDMap sx kx x l r) =
+      case gcompare k kx of
+        GLT -> NonEmptyDMap sx kx x <$> go l <*> pure r
+        GGT -> NonEmptyDMap sx kx x l <$> go r
+        GEQ -> NonEmptyDMap sx kx <$> f x <*> pure l <*> pure r
+
 makeAdjustWithKey
   :: forall k f v
   .  GCompare k

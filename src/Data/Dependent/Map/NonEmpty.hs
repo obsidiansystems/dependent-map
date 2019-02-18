@@ -43,6 +43,7 @@ module Data.Dependent.Map.NonEmpty
     -- ** Delete\/Update
     , delete
     , adjust
+    , adjustF
     , adjustWithKey
     , adjustWithKey'
     , update
@@ -305,6 +306,15 @@ delete k = snd $ makeDelete k
 -- a member of the map, the original map is returned.
 adjust :: GCompare k => (f v -> f v) -> k v -> NonEmptyDMap k f -> NonEmptyDMap k f
 adjust f = adjustWithKey (\_ x -> f x)
+
+-- | Works the same as 'adjust' except the new value is return in some 'Applicative' @f@.
+adjustF
+  :: forall k f v g
+  .  (GCompare  k, Applicative f)
+  => k v
+  -> (g v -> f (g v))
+  -> NonEmptyDMap k g -> f (NonEmptyDMap k g)
+adjustF k f = snd $ makeAdjustF f k
 
 -- | /O(log n)/. Adjust a value at a specific key. When the key is not
 -- a member of the map, the original map is returned.

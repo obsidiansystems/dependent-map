@@ -35,6 +35,7 @@ Library
   exposed-modules:      Data.Dependent.Map,
                         Data.Dependent.Map.Lens,
                         Data.Dependent.Map.NonEmpty,
+                        Data.Dependent.Map.NonEmpty.Lens,
                         Data.Dependent.Map.Internal,
                         Data.Dependent.Map.Internal2
   other-modules:        Data.Dependent.Map.PtrEquality
