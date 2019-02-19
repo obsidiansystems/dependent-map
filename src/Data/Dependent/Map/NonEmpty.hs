@@ -16,6 +16,10 @@ module Data.Dependent.Map.NonEmpty
     , DSum(..), Some(..)
     , GCompare(..), GOrdering(..)
 
+    -- * non-empty specific
+    , nonEmpty
+    , toDMap
+
     -- * Operators
     , (!), (\\)
 
@@ -170,6 +174,13 @@ import Text.Read
 
 instance (GCompare k) => Semigroup (NonEmptyDMap k f) where
   (<>) = union
+
+{--------------------------------------------------------------------
+  NonEmpty* Specific
+--------------------------------------------------------------------}
+
+toDMap :: NonEmptyDMap k f -> DMap k f
+toDMap = Bin'
 
 {--------------------------------------------------------------------
   Operators
