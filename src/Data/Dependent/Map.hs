@@ -211,8 +211,23 @@ m1 \\ m2 = difference m1 m2
 -- #endif
 
 {--------------------------------------------------------------------
+  Construction
+--------------------------------------------------------------------}
+
+-- | /O(1)/. A map with a single element.
+--
+-- > singleton 1 'a'        == fromList [(1, 'a')]
+-- > size (singleton 1 'a') == 1
+singleton :: k v -> f v -> DMap k f
+singleton = singletonE
+
+{--------------------------------------------------------------------
   Query
 --------------------------------------------------------------------}
+
+-- | /O(1)/. The number of elements in the map.
+size :: DMap k f -> Int
+size = sizeE
 
 -- | /O(log n)/. Is the key a member of the map? See also 'notMember'.
 member :: GCompare k => k a -> DMap k f -> Bool
@@ -221,6 +236,13 @@ member k = isJust . lookup k
 -- | /O(log n)/. Is the key not a member of the map? See also 'member'.
 notMember :: GCompare k => k v -> DMap k f -> Bool
 notMember k m = not (member k m)
+
+-- | /O(log n)/. Lookup the value at a key in the map.
+--
+-- The function will return the corresponding value as @('Just' value)@,
+-- or 'Nothing' if the key isn't in the map.
+lookup :: forall k f v. GCompare k => k v -> DMap k f -> Maybe (f v)
+lookup = lookupE
 
 -- | /O(log n)/. Find the value at a key.
 -- Calls 'error' when the element can not be found.

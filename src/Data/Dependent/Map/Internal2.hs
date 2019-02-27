@@ -175,8 +175,8 @@ makeDelete k = (k `seq` go, k `seq` nonEmpty . go')
     go' :: NonEmptyDMap k f -> DMap k f
     go' (NonEmptyDMap _ kx x l r) =
         case gcompare k kx of
-            GLT -> Bin' $! balance kx x (go l) r
-            GGT -> Bin' $! balance kx x l (go r)
+            GLT -> Bin' $! balanceE kx x (go l) r
+            GGT -> Bin' $! balanceE kx x l (go r)
             GEQ -> glue l r
 
 makeAdjustF
@@ -259,8 +259,8 @@ makeUpdateWithKey f k = (k `seq` go, k `seq` nonEmpty . go')
     go' :: NonEmptyDMap k f -> DMap k f
     go' (NonEmptyDMap sx kx x l r) =
         case gcompare k kx of
-           GLT -> Bin' $! balance kx x (go l) r
-           GGT -> Bin' $! balance kx x l (go r)
+           GLT -> Bin' $! balanceE kx x (go l) r
+           GGT -> Bin' $! balanceE kx x l (go r)
            GEQ -> case f kx x of
                    Just x' -> Bin sx kx x' l r
                    Nothing -> glue l r
@@ -282,11 +282,11 @@ makeUpdateLookupWithKey f k = (k `seq` go, k `seq` fmap nonEmpty . go')
     go' :: NonEmptyDMap k f -> (Maybe (f v), DMap k f)
     go' (NonEmptyDMap sx kx x l r) =
            case gcompare k kx of
-                GLT -> let (found,l') = go l in (found,Bin' $! balance kx x l' r)
-                GGT -> let (found,r') = go r in (found,Bin' $! balance kx x l r')
+                GLT -> let (found,l') = go l in (found,Bin' $! balanceE kx x l' r)
+                GGT -> let (found,r') = go r in (found,Bin' $! balanceE kx x l r')
                 GEQ -> case f kx x of
-                        Just x' -> (Just x',Bin sx kx x' l r)
-                        Nothing -> (Just x,glue l r)
+                        Just x' -> (Just x', Bin sx kx x' l r)
+                        Nothing -> (Just x, glue l r)
 
 makeAlter
   :: forall k f v
@@ -301,13 +301,13 @@ makeAlter f k = (k `seq` go, k `seq` nonEmpty . go')
     go :: DMap k f -> DMap k f
     go Tip = case f Nothing of
                Nothing -> Tip
-               Just x  -> singleton k x
+               Just x  -> singletonE k x
     go (Bin' ne) = go' ne
 
     go' :: NonEmptyDMap k f -> DMap k f
     go' (NonEmptyDMap sx kx x l r) = case gcompare k kx of
-               GLT -> Bin' $! balance kx x (go l) r
-               GGT -> Bin' $! balance kx x l (go r)
+               GLT -> Bin' $! balanceE kx x (go l) r
+               GGT -> Bin' $! balanceE kx x l (go r)
                GEQ -> case f (Just x) of
                        Just x' -> Bin sx kx x' l r
                        Nothing -> glue l r
@@ -327,13 +327,13 @@ makeAlterF
 makeAlterF k f = (go, fmap nonEmpty . go')
   where
     go :: DMap k g -> f (DMap k g)
-    go Tip = maybe Tip (singleton k) <$> f Nothing
+    go Tip = maybe Tip (singletonE k) <$> f Nothing
     go (Bin' ne) = go' ne
 
     go' :: NonEmptyDMap k g -> f (DMap k g)
     go' (NonEmptyDMap sx kx x l r) = case gcompare k kx of
-      GLT -> (\l' -> Bin' $! balance kx x l' r) <$> go l
-      GGT -> (\r' -> Bin' $! balance kx x l r') <$> go r
+      GLT -> (\l' -> Bin' $! balanceE kx x l' r) <$> go l
+      GGT -> (\r' -> Bin' $! balanceE kx x l r') <$> go r
       GEQ -> maybe (glue l r) (\x' -> Bin sx kx x' l r) <$> f (Just x)
 
 makeLookupIndex
@@ -353,8 +353,8 @@ makeLookupIndex k = (k `seq` go 0, k `seq` go' 0)
     go' !idx (NonEmptyDMap _ kx _ l r)
       = case gcompare k kx of
           GLT -> go idx l
-          GGT -> go (idx + size l + 1) r
-          GEQ -> Just (idx + size l)
+          GGT -> go (idx + sizeE l + 1) r
+          GEQ -> Just (idx + sizeE l)
 
 makElemAt
   :: ( Int -> DMap k f -> DSum k f
@@ -372,7 +372,7 @@ makElemAt = (go, go')
           GT -> go (i-sizeL-1) r
           EQ -> kx :=> x
       where
-        sizeL = size l
+        sizeL = sizeE l
 
 makeUpdateAt
   :: forall k f v
@@ -389,13 +389,13 @@ makeUpdateAt f i0 = (i0 `seq` go i0, i0 `seq` nonEmpty . go' i0)
 
     go' :: Int -> NonEmptyDMap k f -> DMap k f
     go' i (NonEmptyDMap sx kx x l r) = case compare i sizeL of
-      LT -> Bin' $! balance kx x (go i l) r
-      GT -> Bin' $! balance kx x l (go (i-sizeL-1) r)
+      LT -> Bin' $! balanceE kx x (go i l) r
+      GT -> Bin' $! balanceE kx x l (go (i-sizeL-1) r)
       EQ -> case f kx x of
               Just x' -> Bin sx kx x' l r
               Nothing -> glue l r
       where
-        sizeL = size l
+        sizeL = sizeE l
 
 {--------------------------------------------------------------------
   Minimal, Maximal Worker Builders
@@ -452,7 +452,7 @@ makeDeleteMin = (go, nonEmpty . go')
 
     go' :: NonEmptyDMap k f -> DMap k f
     go' (NonEmptyDMap _ _  _ Tip r) = r
-    go' (NonEmptyDMap _ kx x l r)   = Bin' $! balance kx x (go l) r
+    go' (NonEmptyDMap _ kx x l r)   = Bin' $! balanceE kx x (go l) r
 
 makeDeleteMax
   :: forall k f
@@ -467,7 +467,7 @@ makeDeleteMax = (go, nonEmpty . go')
 
     go' :: NonEmptyDMap k f -> DMap k f
     go' (NonEmptyDMap _ _  _ l Tip) = l
-    go' (NonEmptyDMap _ kx x l r)   = Bin' $! balance kx x l (go r)
+    go' (NonEmptyDMap _ kx x l r)   = Bin' $! balanceE kx x l (go r)
 
 
 -- | /O(log n)/. Update the value at the minimal key.
@@ -483,7 +483,7 @@ makeUpdateMinWithKey f = (go, nonEmpty . go')
     go' (NonEmptyDMap sx kx x Tip r) = case f kx x of
                                   Nothing -> r
                                   Just x' -> Bin sx kx x' Tip r
-    go' (NonEmptyDMap _ kx x l r)    = Bin' $! balance kx x (go l) r
+    go' (NonEmptyDMap _ kx x l r)    = Bin' $! balanceE kx x (go l) r
 
 makeUpdateMaxWithKey
   :: (forall v. k v -> f v -> Maybe (f v))
@@ -497,7 +497,7 @@ makeUpdateMaxWithKey f = (go, nonEmpty . go')
     go' (NonEmptyDMap sx kx x l Tip) = case f kx x of
                               Nothing -> l
                               Just x' -> Bin sx kx x' l Tip
-    go' (NonEmptyDMap _ kx x l r)    = Bin' $! balance kx x l (go r)
+    go' (NonEmptyDMap _ kx x l r)    = Bin' $! balanceE kx x l (go r)
 
 {--------------------------------------------------------------------
   Union Worker Builders
@@ -516,7 +516,7 @@ makeUnion = (go, go')
     go t1@(Bin _ k1 x1 l1 r1) t2 = case fst (makeSplit k1) t2 of
       (l2, r2)
         | l1 `ptrEq` l1l2 && r1 `ptrEq` r1r2 -> t1
-        | otherwise -> Bin' $! combine k1 x1 l1l2 r1r2
+        | otherwise -> Bin' $! combineE k1 x1 l1l2 r1r2
         where !l1l2 = l1 `go` l2
               !r1r2 = r1 `go` r2
 
@@ -525,7 +525,7 @@ makeUnion = (go, go')
     go' t1@(NonEmptyDMap _ k1 x1 l1 r1) t2 = case snd (makeSplit k1) t2 of
       (l2, r2)
         | l1 `ptrEq` l1l2 && r1 `ptrEq` r1r2 -> t1
-        | otherwise -> combine k1 x1 l1l2 r1r2
+        | otherwise -> combineE k1 x1 l1l2 r1r2
         where !l1l2 = l1 `go` l2
               !r1r2 = r1 `go` r2
 
@@ -540,15 +540,15 @@ makeUnionWithKey f = (go, go')
     go Tip t2  = t2
     go (Bin _ k1 x1 l1 r1) t2 = case fst (makeSplitLookup k1) t2 of
       (l2, mx2, r2) -> case mx2 of
-          Nothing -> Bin' $! combine k1 x1 l1l2 r1r2
-          Just x2 -> Bin' $! combine k1 (f k1 x1 x2) l1l2 r1r2
+          Nothing -> Bin' $! combineE k1 x1 l1l2 r1r2
+          Just x2 -> Bin' $! combineE k1 (f k1 x1 x2) l1l2 r1r2
         where !l1l2 = go l1 l2
               !r1r2 = go r1 r2
 
     go' (NonEmptyDMap _ k1 x1 l1 r1) t2 = case snd (makeSplitLookup k1) t2 of
       (l2, mx2, r2) -> case mx2 of
-          Nothing -> combine k1 x1 l1l2 r1r2
-          Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
+          Nothing -> combineE k1 x1 l1l2 r1r2
+          Just x2 -> combineE k1 (f k1 x1 x2) l1l2 r1r2
         where !l1l2 = go l1 l2
               !r1r2 = go r1 r2
 
@@ -567,7 +567,7 @@ makeDifference = (go, go')
     go t1 Tip  = t1
     go t1 (Bin _ k2 _x2 l2 r2) = case fst (makeSplit k2) t1 of
       (l1, r1)
-        | size t1 == size l1l2 + size r1r2 -> t1
+        | sizeE t1 == sizeE l1l2 + sizeE r1r2 -> t1
         | otherwise -> merge l1l2 r1r2
         where
           !l1l2 = l1 `go` l2
@@ -575,7 +575,7 @@ makeDifference = (go, go')
 
     go' t1 (NonEmptyDMap _ k2 _x2 l2 r2) = case snd (makeSplit k2) t1 of
       (l1, r1)
-        | sizeNE t1 == size l1l2 + size r1r2 -> Bin' t1
+        | sizeNE t1 == sizeE l1l2 + sizeE r1r2 -> Bin' t1
         | otherwise -> merge l1l2 r1r2
         where
           !l1l2 = l1 `go` l2
@@ -593,19 +593,19 @@ makeDifferenceWithKey f = (go, go')
     go t1 Tip  = t1
     go (Bin _ k1 x1 l1 r1) t2 = case fst (makeSplitLookup k1) t2 of
       (l2, mx2, r2) -> case mx2 of
-          Nothing -> Bin' $! combine k1 x1 l1l2 r1r2
+          Nothing -> Bin' $! combineE k1 x1 l1l2 r1r2
           Just x2 -> case f k1 x1 x2 of
             Nothing -> merge l1l2 r1r2
-            Just x1x2 -> Bin' $! combine k1 x1x2 l1l2 r1r2
+            Just x1x2 -> Bin' $! combineE k1 x1x2 l1l2 r1r2
         where !l1l2 = go l1 l2
               !r1r2 = go r1 r2
 
     go' (NonEmptyDMap _ k1 x1 l1 r1) t2 = case snd (makeSplitLookup k1) t2 of
       (l2, mx2, r2) -> case mx2 of
-          Nothing -> Bin' $! combine k1 x1 l1l2 r1r2
+          Nothing -> Bin' $! combineE k1 x1 l1l2 r1r2
           Just x2 -> case f k1 x1 x2 of
             Nothing -> merge l1l2 r1r2
-            Just x1x2 -> Bin' $! combine k1 x1x2 l1l2 r1r2
+            Just x1x2 -> Bin' $! combineE k1 x1x2 l1l2 r1r2
         where !l1l2 = go l1 l2
               !r1r2 = go r1 r2
 
@@ -629,7 +629,7 @@ makeIntersection = (go, go')
       in if found
          then if l1l2 `ptrEq` l1 && r1r2 `ptrEq` r1
               then t1
-              else Bin' $! combine k1 x1 l1l2 r1r2
+              else Bin' $! combineE k1 x1 l1l2 r1r2
          else merge l1l2 r1r2
 
     go' t1@(NonEmptyDMap s1 k1 x1 l1 r1) t2 =
@@ -639,7 +639,7 @@ makeIntersection = (go, go')
       in if found
          then if l1l2 `ptrEq` l1 && r1r2 `ptrEq` r1
               then Bin' t1
-              else Bin' $! combine k1 x1 l1l2 r1r2
+              else Bin' $! combineE k1 x1 l1l2 r1r2
          else merge l1l2 r1r2
 
 makeIntersectionWithKey
@@ -660,7 +660,7 @@ makeIntersectionWithKey f = (go, go')
           !r1r2 = go r1 r2
       in case found of
            Nothing -> merge l1l2 r1r2
-           Just x2 -> Bin' $! combine k1 (f k1 x1 x2) l1l2 r1r2
+           Just x2 -> Bin' $! combineE k1 (f k1 x1 x2) l1l2 r1r2
 
     go' :: NonEmptyDMap k f -> NonEmptyDMap k g -> DMap k h
     go' (NonEmptyDMap s1 k1 x1 l1 r1) t2 =
@@ -669,7 +669,7 @@ makeIntersectionWithKey f = (go, go')
           !r1r2 = go r1 r2
       in case found of
            Nothing -> merge l1l2 r1r2
-           Just x2 -> Bin' $! combine k1 (f k1 x1 x2) l1l2 r1r2
+           Just x2 -> Bin' $! combineE k1 (f k1 x1 x2) l1l2 r1r2
 
 {--------------------------------------------------------------------
   Submap Worker Builders
@@ -713,7 +713,7 @@ makeFilterWithKey p = go
     go t@(Bin _ kx x l r)
       | p kx x    = if l' `ptrEq` l && r' `ptrEq` r
                     then t
-                    else Bin' $! combine kx x l' r'
+                    else Bin' $! combineE kx x l' r'
       | otherwise = merge l' r'
       where !l' = go l
             !r' = go r
@@ -729,8 +729,8 @@ makePartitionWithKey p m0 = toPair (go m0)
     go :: DMap k f -> (DMap k f :*: DMap k f)
     go Tip = (Tip :*: Tip)
     go (Bin _ kx x l r)
-      | p kx x    = ((Bin' $! combine kx x l1 r1) :*: merge l2 r2)
-      | otherwise = (merge l1 r1 :*: (Bin' $! combine kx x l2 r2))
+      | p kx x    = ((Bin' $! combineE kx x l1 r1) :*: merge l2 r2)
+      | otherwise = (merge l1 r1 :*: (Bin' $! combineE kx x l2 r2))
       where
         (l1 :*: l2) = go l
         (r1 :*: r2) = go r
@@ -744,7 +744,7 @@ makeMapMaybeWithKey f = go
   where
     go Tip = Tip
     go (Bin _ kx x l r) = case f kx x of
-        Just y  -> Bin' $! combine kx y (go l) (go r)
+        Just y  -> Bin' $! combineE kx y (go l) (go r)
         Nothing -> merge (go l) (go r)
 
 makeMapEitherWithKey
@@ -759,8 +759,8 @@ makeMapEitherWithKey f = toPair . go
        => DMap k f -> (DMap k g :*: DMap k h)
     go Tip = (Tip :*: Tip)
     go (Bin _ kx x l r) = case f kx x of
-      Left y  -> ((Bin' $! combine kx y l1 r1) :*: merge l2 r2)
-      Right z -> (merge l1 r1 :*: (Bin' $! combine kx z l2 r2))
+      Left y  -> ((Bin' $! combineE kx y l1 r1) :*: merge l2 r2)
+      Right z -> (merge l1 r1 :*: (Bin' $! combineE kx z l2 r2))
       where
         (l1 :*: l2) = go l
         (r1 :*: r2) = go r
@@ -917,7 +917,7 @@ makeFromDistinctAscList
     build c 0 xs'  = c Tip xs'
     build c 5 xs'  = case xs' of
                        ((k1:=>x1):(k2:=>x2):(k3:=>x3):(k4:=>x4):(k5:=>x5):xx)
-                            -> c (bin k4 x4 (bin k2 x2 (singleton k1 x1) (singleton k3 x3)) (singleton k5 x5)) xx
+                            -> c (binE k4 x4 (binE k2 x2 (singletonE k1 x1) (singletonE k3 x3)) (singletonE k5 x5)) xx
                        _ -> error "fromDistinctAscList build"
     build c n xs'  = seq nr $ build (buildR nr c) nl xs'
                    where
@@ -931,7 +931,7 @@ makeFromDistinctAscList
       -> b
     build' c 5 xs'  = case xs' of
                        (k1:=>x1) :| ((k2:=>x2):(k3:=>x3):(k4:=>x4):(k5:=>x5):xx)
-                            -> c (binNE k4 x4 (bin k2 x2 (singleton k1 x1) (singleton k3 x3)) (singleton k5 x5)) xx
+                            -> c (binNE k4 x4 (binE k2 x2 (singletonE k1 x1) (singletonE k3 x3)) (singletonE k5 x5)) xx
                        _ -> error "fromDistinctAscList build'"
     build' c n xs'  = seq nr $ build' (build'R nr c) nl xs'
                    where
@@ -957,7 +957,7 @@ makeFromDistinctAscList
       :: DMap k f -> k v -> f v
       -> (DMap k f -> a -> b)
       -> DMap k f -> a -> b
-    buildB l k x c r zs = c (bin k x l r) zs
+    buildB l k x c r zs = c (binE k x l r) zs
 
     build'B
       :: NonEmptyDMap k f -> k v -> f v
@@ -983,8 +983,8 @@ makeSplit k = (toPair . go, toPair . go')
 
     go' :: NonEmptyDMap k f -> (DMap k f :*: DMap k f)
     go' (NonEmptyDMap _ kx x l r) = case gcompare k kx of
-          GLT -> let !(lt :*: gt) = go l in (lt :*: (Bin' $! combine kx x gt r))
-          GGT -> let !(lt :*: gt) = go r in ((Bin' $! combine kx x l lt) :*: gt)
+          GLT -> let !(lt :*: gt) = go l in (lt :*: (Bin' $! combineE kx x gt r))
+          GGT -> let !(lt :*: gt) = go r in ((Bin' $! combineE kx x l lt) :*: gt)
           GEQ -> (l :*: r)
 {-# INLINABLE makeSplit #-}
 
@@ -1003,8 +1003,8 @@ makeSplitLookup k = (toTriple . go, toTriple . go')
 
     go' :: NonEmptyDMap k f -> Triple' (DMap k f) (Maybe (f v)) (DMap k f)
     go' (NonEmptyDMap _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combineE kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combineE kx x l lt) z gt
       GEQ -> Triple' l (Just x) r
 
 makeSplitMember
@@ -1022,8 +1022,8 @@ makeSplitMember k = (toTriple . go, toTriple . go')
 
     go' :: NonEmptyDMap k f -> Triple' (DMap k f) Bool (DMap k f)
     go' (NonEmptyDMap _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combineE kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combineE kx x l lt) z gt
       GEQ -> Triple' l True r
 
 makeSplitLookupWithKey
@@ -1041,8 +1041,8 @@ makeSplitLookupWithKey k = (toTriple . go, toTriple . go')
 
     go' :: NonEmptyDMap k f -> Triple' (DMap k f) (Maybe (k v, f v)) (DMap k f)
     go' (NonEmptyDMap _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combine kx x l lt) z gt
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (Bin' $! combineE kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (Bin' $! combineE kx x l lt) z gt
       GEQ -> Triple' l (Just (kx, x)) r
 
 {--------------------------------------------------------------------
@@ -1154,7 +1154,7 @@ makeBalanced = (go, go')
         Bin' ne -> go' ne
 
     go' t = case t of
-        NonEmptyDMap _ _ _ l r  -> (size l + size r <= 1 || (size l <= delta*size r && size r <= delta*size l)) &&
+        NonEmptyDMap _ _ _ l r  -> (sizeE l + sizeE r <= 1 || (sizeE l <= delta*sizeE r && sizeE r <= delta*sizeE l)) &&
                         go l && go r
 
 makeValidsize
@@ -1162,7 +1162,7 @@ makeValidsize
      , NonEmptyDMap k f -> Bool
      )
 makeValidsize =
-  ( \t -> realsize t == Just (size t)
+  ( \t -> realsize t == Just (sizeE t)
   , \t -> realsize' t == Just (sizeNE t)
   )
   where
