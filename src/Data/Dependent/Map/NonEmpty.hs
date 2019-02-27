@@ -31,7 +31,6 @@ module Data.Dependent.Map.NonEmpty
     , findWithDefault
 
     -- * Construction
-    , empty
     , singleton
 
     -- ** Insertion
