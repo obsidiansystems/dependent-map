@@ -10,7 +10,11 @@
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
 {-# LANGUAGE PolyKinds #-}
 #endif
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Data.Dependent.Map.Internal where
+
+import Prelude hiding (lookup)
 
 import Data.Dependent.Sum
 import Data.GADT.Compare
@@ -19,10 +23,10 @@ import Data.Some
 import Data.Typeable (Typeable)
 #endif
 
--- |Dependent maps: 'k' is a GADT-like thing with a facility for 
+-- |Dependent maps: 'k' is a GADT-like thing with a facility for
 -- rediscovering its type parameter, elements of which function as identifiers
 -- tagged with the type of the thing they identify.  Real GADTs are one
--- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the 
+-- useful instantiation of @k@, as are 'Tag's from "Data.Unique.Tag" in the
 -- 'prim-uniq' package.
 --
 -- Semantically, @'DMap' k f@ is equivalent to a set of @'DSum' k f@ where no two
@@ -31,17 +35,36 @@ import Data.Typeable (Typeable)
 -- More informally, 'DMap' is to dependent products as 'M.Map' is to @(->)@.
 -- Thus it could also be thought of as a partial (in the sense of \"partial
 -- function\") dependent product.
-data DMap k f where
-    Tip :: DMap k f
-    Bin :: {- sz    -} !Int
-        -> {- key   -} !(k v)
-        -> {- value -} f v
-        -> {- left  -} !(DMap k f)
-        -> {- right -} !(DMap k f)
-        -> DMap k f
+data DMap k f
+  = Tip
+  | Bin' {-# UNPACK #-} !(NonEmptyDMap k f)
 #if MIN_VERSION_base(4,7,0)
     deriving Typeable
 #endif
+
+pattern Bin s k v l r = Bin' (NonEmptyDMap s k v l r)
+
+data NonEmptyDMap k f where
+    NonEmptyDMap
+         :: {- sz    -} !Int
+         -> {- key   -} !(k v)
+         -> {- value -} f v
+         -> {- left  -} !(DMap k f)
+         -> {- right -} !(DMap k f)
+         -> NonEmptyDMap k f
+#if MIN_VERSION_base(4,7,0)
+    deriving Typeable
+#endif
+
+nonEmpty :: DMap k f -> Maybe (NonEmptyDMap k f)
+nonEmpty = \case
+    Tip -> Nothing
+    Bin' ne -> Just ne
+
+fromNonEmpty :: Maybe (NonEmptyDMap k f) -> DMap k f
+fromNonEmpty = \case
+    Nothing -> Tip
+    Just ne -> Bin' ne
 
 {--------------------------------------------------------------------
   Construction
@@ -58,8 +81,15 @@ empty = Tip
 --
 -- > singleton 1 'a'        == fromList [(1, 'a')]
 -- > size (singleton 1 'a') == 1
-singleton :: k v -> f v -> DMap k f
-singleton k x = Bin 1 k x Tip Tip
+singletonNE :: k v -> f v -> NonEmptyDMap k f
+singletonNE k x = NonEmptyDMap 1 k x Tip Tip
+
+-- | /O(1)/. A map with a single element.
+--
+-- > singleton 1 'a'        == fromList [(1, 'a')]
+-- > size (singletonE 1 'a') == 1
+singletonE :: k v -> f v -> DMap k f
+singletonE k x = Bin' $! singletonNE k x
 
 {--------------------------------------------------------------------
   Query
@@ -68,52 +98,65 @@ singleton k x = Bin 1 k x Tip Tip
 -- | /O(1)/. Is the map empty?
 null :: DMap k f -> Bool
 null Tip    = True
-null Bin{}  = False
+null Bin'{}  = False
 
 -- | /O(1)/. The number of elements in the map.
-size :: DMap k f -> Int
-size Tip                = 0
-size (Bin n _ _ _ _)    = n
+sizeNE :: NonEmptyDMap k f -> Int
+sizeNE (NonEmptyDMap n _ _ _ _) = n
+
+-- | /O(1)/. The number of elements in the map.
+sizeE :: DMap k f -> Int
+sizeE Tip      = 0
+sizeE (Bin' ne) = sizeNE ne
 
 -- | /O(log n)/. Lookup the value at a key in the map.
 --
 -- The function will return the corresponding value as @('Just' value)@,
 -- or 'Nothing' if the key isn't in the map.
-lookup :: forall k f v. GCompare k => k v -> DMap k f -> Maybe (f v)
-lookup k = k `seq` go
-    where
-        go :: DMap k f -> Maybe (f v)
-        go Tip = Nothing
-        go (Bin _ kx x l r) = 
-            case gcompare k kx of
-                GLT -> go l
-                GGT -> go r
-                GEQ -> Just x
+lookupNE :: forall k f v. GCompare k => k v -> NonEmptyDMap k f -> Maybe (f v)
+lookupNE k ne = k `seq` lookupNE' k ne
 
-lookupAssoc :: forall k f v. GCompare k => Some k -> DMap k f -> Maybe (DSum k f)
-lookupAssoc (This k) = k `seq` go
-  where
-    go :: DMap k f -> Maybe (DSum k f)
-    go Tip = Nothing
-    go (Bin _ kx x l r) =
-        case gcompare k kx of
-            GLT -> go l
-            GGT -> go r
-            GEQ -> Just (kx :=> x)
+-- | Skips the seq
+{-# INLINE lookupNE' #-}
+lookupNE' :: forall k f v. GCompare k => k v -> NonEmptyDMap k f -> Maybe (f v)
+lookupNE' k (NonEmptyDMap _ kx x l r) = case gcompare k kx of
+    GLT -> lookupE' k l
+    GGT -> lookupE' k r
+    GEQ -> Just x
+
+-- | /O(log n)/. Lookup the value at a key in the map.
+--
+-- The function will return the corresponding value as @('Just' value)@,
+-- or 'Nothing' if the key isn't in the map.
+lookupE :: forall k f v. GCompare k => k v -> DMap k f -> Maybe (f v)
+lookupE k m = k `seq` lookupE' k m
+
+-- | Skips the seq
+{-# INLINE lookupE' #-}
+lookupE' :: forall k f v. GCompare k => k v -> DMap k f -> Maybe (f v)
+lookupE' k = \case
+    Tip -> Nothing
+    (Bin' ne) -> lookupNE' k ne
+
+lookupAssocNE :: forall k f v. GCompare k => Some k -> NonEmptyDMap k f -> Maybe (DSum k f)
+lookupAssocNE (This k) m = (k :=>) <$> lookupNE k m
+
+lookupAssocE :: forall k f v. GCompare k => Some k -> DMap k f -> Maybe (DSum k f)
+lookupAssocE (This k) m = (k :=>) <$> lookupE k m
 
 {--------------------------------------------------------------------
   Utility functions that maintain the balance properties of the tree.
   All constructors assume that all values in [l] < [k] and all values
   in [r] > [k], and that [l] and [r] are valid trees.
-  
+
   In order of sophistication:
-    [Bin sz k x l r]  The type constructor.
-    [bin k x l r]     Maintains the correct size, assumes that both [l]
+    [Bin' sz k x l r]  The type constructor.
+    [bin k x l r]     Maintains the correct sizeE, assumes that both [l]
                       and [r] are balanced with respect to each other.
-    [balance k x l r] Restores the balance and size.
+    [balance k x l r] Restores the balance and sizeE.
                       Assumes that the original tree was balanced and
                       that [l] or [r] has changed by at most one element.
-    [combine k x l r] Restores balance and size. 
+    [combine k x l r] Restores balance and sizeE.
 
   Furthermore, we can construct a new tree from two trees. Both operations
   assume that all values in [l] < all values in [r] and that [l] and [r]
@@ -123,70 +166,87 @@ lookupAssoc (This k) = k `seq` go
     [merge l r]       Merges two trees and restores balance.
 
   Note: in contrast to Adam's paper, we use (<=) comparisons instead
-  of (<) comparisons in [combine], [merge] and [balance]. 
-  Quickcheck (on [difference]) showed that this was necessary in order 
-  to maintain the invariants. It is quite unsatisfactory that I haven't 
-  been able to find out why this is actually the case! Fortunately, it 
+  of (<) comparisons in [combine], [merge] and [balance].
+  Quickcheck (on [difference]) showed that this was necessary in order
+  to maintain the invariants. It is quite unsatisfactory that I haven't
+  been able to find out why this is actually the case! Fortunately, it
   doesn't hurt to be a bit more conservative.
 --------------------------------------------------------------------}
 
 {--------------------------------------------------------------------
   Combine
 --------------------------------------------------------------------}
-combine :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> DMap k f
-combine kx x Tip r  = insertMin kx x r
-combine kx x l Tip  = insertMax kx x l
-combine kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
-  | delta*sizeL <= sizeR  = balance kz z (combine kx x l lz) rz
-  | delta*sizeR <= sizeL  = balance ky y ly (combine kx x ry r)
-  | otherwise             = bin kx x l r
+combineNE :: GCompare k => k v -> f v -> NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+combineNE kx x l@(NonEmptyDMap sizeEL ky y ly ry) r@(NonEmptyDMap sizeER kz z lz rz)
+    | delta*sizeEL <= sizeER  = balanceNEL kz z (combineNEL kx x l lz) rz
+    | delta*sizeER <= sizeEL  = balanceNER ky y ly (combineNER kx x ry r)
+    | otherwise             = binNE kx x (Bin' l) (Bin' r)
 
+combineNEL :: GCompare k => k v -> f v -> NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+combineNEL kx x l Tip = insertMaxNE kx x l
+combineNEL kx x l (Bin' r) = combineNE kx x l r
+
+combineNER :: GCompare k => k v -> f v -> DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+combineNER kx x Tip r = insertMinNE kx x r
+combineNER kx x (Bin' l) r = combineNE kx x l r
+
+combineE :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> NonEmptyDMap k f
+combineE kx x Tip r  = insertMin kx x r
+combineE kx x l Tip  = insertMax kx x l
+combineE kx x (Bin' l) (Bin' r) = combineNE kx x l r
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
-insertMax,insertMin :: k v -> f v -> DMap k f -> DMap k f
-insertMax kx x t
-  = case t of
-      Tip -> singleton kx x
-      Bin _ ky y l r
-          -> balance ky y l (insertMax kx x r)
-             
-insertMin kx x t
-  = case t of
-      Tip -> singleton kx x
-      Bin _ ky y l r
-          -> balance ky y (insertMin kx x l) r
-             
+
+insertMaxNE, insertMinNE :: k v -> f v -> NonEmptyDMap k f -> NonEmptyDMap k f
+insertMaxNE kx x (NonEmptyDMap _ ky y l r) = balanceNER ky y l (insertMax kx x r)
+insertMinNE kx x (NonEmptyDMap _ ky y l r) = balanceNEL ky y (insertMin kx x l) r
+
+insertMax, insertMin :: k v -> f v -> DMap k f -> NonEmptyDMap k f
+insertMax kx x t  = case t of
+    Tip -> singletonNE kx x
+    Bin' ne -> insertMaxNE kx x ne
+
+insertMin kx x t = case t of
+    Tip -> singletonNE kx x
+    Bin' ne -> insertMinNE kx x ne
+
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
 --------------------------------------------------------------------}
-merge :: DMap k f -> DMap k f -> DMap k f
-merge Tip r   = r
-merge l Tip   = l
-merge l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
-  | delta*sizeL <= sizeR = balance ky y (merge l ly) ry
-  | delta*sizeR <= sizeL = balance kx x lx (merge rx r)
-  | otherwise            = glue l r
+mergeNE :: NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+mergeNE l@(NonEmptyDMap sizeEL kx x lx rx) r@(NonEmptyDMap sizeER ky y ly ry)
+    | delta*sizeEL <= sizeER = balanceNEL ky y (mergeNEL l ly) ry
+    | delta*sizeER <= sizeEL = balanceNER kx x lx (mergeNER rx r)
+    | otherwise            = glueNE l r
+
+mergeNEL :: NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+mergeNEL l Tip = l
+mergeNEL l (Bin' r) = mergeNE l r
+
+mergeNER :: DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+mergeNER Tip r = r
+mergeNER (Bin' l) r = mergeNE l r
+
+mergeE :: DMap k f -> DMap k f -> DMap k f
+mergeE Tip r   = r
+mergeE l Tip   = l
+mergeE (Bin' l) (Bin' r) = Bin' $! mergeNE l r
 
 {--------------------------------------------------------------------
   [glue l r]: glues two trees together.
   Assumes that [l] and [r] are already balanced with respect to each other.
 --------------------------------------------------------------------}
-glue :: DMap k f -> DMap k f -> DMap k f
-glue Tip r = r
-glue l Tip = l
-glue l r   
-  | size l > size r = case deleteFindMax l of (km :=> m,l') -> balance km m l' r
-  | otherwise       = case deleteFindMin r of (km :=> m,r') -> balance km m l r'
+glueNE :: NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+glueNE l r
+    | sizeNE l > sizeNE r = case maxViewWithKeyNE l of
+        (km :=> m, l') -> balanceNER km m l' r
+    | otherwise = case minViewWithKeyNE r of
+        (km :=> m, r') -> balanceNEL km m l r'
 
--- | /O(log n)/. Delete and find the minimal element.
---
--- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")]) 
--- > deleteFindMin                                            Error: can not return the minimal element of an empty map
-
-deleteFindMin :: DMap k f -> (DSum k f, DMap k f)
-deleteFindMin t = case minViewWithKey t of
-      Nothing -> (error "Map.deleteFindMin: can not return the minimal element of an empty map", Tip)
-      Just p -> p
+glueE :: DMap k f -> DMap k f -> DMap k f
+glueE Tip r = r
+glueE l Tip = l
+glueE (Bin' l) (Bin' r) = Bin' $! glueNE l r
 
 -- | A strict pair.
 data (:*:) a b = !a :*: !b
@@ -205,48 +265,47 @@ toTriple (Triple' a b c) = (a, b, c)
 {-# INLINE toTriple #-}
 
 -- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
--- the map stripped of that element, or 'Nothing' if passed an empty map.
-minViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
-minViewWithKey Tip = Nothing
-minViewWithKey (Bin _ k0 x0 l0 r0) = Just $! toPair $ go k0 x0 l0 r0
+-- the map stripped of that element
+minViewWithKeyNE :: forall k f . NonEmptyDMap k f -> (DSum k f, DMap k f)
+minViewWithKeyNE (NonEmptyDMap _ k0 x0 l0 r0) = toPair $ go k0 x0 l0 r0
   where
     go :: k v -> f v -> DMap k f -> DMap k f -> DSum k f :*: DMap k f
     go k x Tip r = (k :=> x) :*: r
     go k x (Bin _ kl xl ll lr) r =
       let !(km :*: l') = go kl xl ll lr
-      in (km :*: balance k x l' r)
+      in (km :*: (Bin' $! balanceE k x l' r))
+
+-- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+minViewWithKeyE :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+minViewWithKeyE Tip = Nothing
+minViewWithKeyE (Bin' ne) = Just $! minViewWithKeyNE ne
 
 -- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
-maxViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
-maxViewWithKey Tip = Nothing
-maxViewWithKey (Bin _ k0 x0 l0 r0) = Just $! toPair $ go k0 x0 l0 r0
+maxViewWithKeyNE :: forall k f . NonEmptyDMap k f -> (DSum k f, DMap k f)
+maxViewWithKeyNE (NonEmptyDMap _ k0 x0 l0 r0) = toPair $ go k0 x0 l0 r0
   where
     go :: k v -> f v -> DMap k f -> DMap k f -> DSum k f :*: DMap k f
     go k x l Tip = (k :=> x) :*: l
     go k x l (Bin _ kr xr rl rr) =
       let !(km :*: r') = go kr xr rl rr
-      in (km :*: balance k x l r')
+      in (km :*: (Bin' $! balanceE k x l r'))
 
--- | /O(log n)/. Delete and find the maximal element.
---
--- > deleteFindMax (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((10,"c"), fromList [(3,"b"), (5,"a")])
--- > deleteFindMax empty                                      Error: can not return the maximal element of an empty map
+-- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+maxViewWithKeyE :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+maxViewWithKeyE Tip = Nothing
+maxViewWithKeyE (Bin' ne) = Just $! maxViewWithKeyNE ne
 
-deleteFindMax :: DMap k f -> (DSum k f, DMap k f)
-deleteFindMax t
-  = case t of
-      Bin _ k x l Tip -> (k :=> x,l)
-      Bin _ k x l r   -> let (km,r') = deleteFindMax r in (km,balance k x l r')
-      Tip             -> (error "Map.deleteFindMax: can not return the maximal element of an empty map", Tip)
 
 
 {--------------------------------------------------------------------
   [balance l x r] balances two trees with value x.
-  The sizes of the trees should balance after decreasing the
-  size of one of them. (a rotation).
+  The sizeEs of the trees should balance after decreasing the
+  sizeE of one of them. (a rotation).
 
-  [delta] is the maximal relative difference between the sizes of
+  [delta] is the maximal relative difference between the sizeEs of
           two trees, it corresponds with the [w] in Adams' paper.
   [ratio] is the ratio between an outer and inner sibling of the
           heavier subtree in an unbalanced setting. It determines
@@ -257,7 +316,7 @@ deleteFindMax t
   Note that:
   - [delta] should be larger than 4.646 with a [ratio] of 2.
   - [delta] should be larger than 3.745 with a [ratio] of 1.534.
-  
+
   - A lower [delta] leads to a more 'perfectly' balanced tree.
   - A higher [delta] performs less rebalancing.
 
@@ -275,49 +334,103 @@ delta,ratio :: Int
 delta = 4
 ratio = 2
 
-balance :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-balance k x l r
-  | sizeL + sizeR <= 1    = Bin sizeX k x l r
-  | sizeR >= delta*sizeL  = rotateL k x l r
-  | sizeL >= delta*sizeR  = rotateR k x l r
-  | otherwise             = Bin sizeX k x l r
+-- TODO delete these
+
+balanceNE :: k v -> f v -> NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+balanceNE k x l r
+  | sizeEL + sizeER <= 1    = NonEmptyDMap sizeEX k x (Bin' l) (Bin' r)
+  | sizeER >= delta*sizeEL  = rotateL k x (Bin' l) r
+  | sizeEL >= delta*sizeER  = rotateR k x l (Bin' r)
+  | otherwise             = NonEmptyDMap sizeEX k x (Bin' l) (Bin' r)
   where
-    sizeL = size l
-    sizeR = size r
-    sizeX = sizeL + sizeR + 1
+    sizeEL = sizeNE l
+    sizeER = sizeNE r
+    sizeEX = sizeEL + sizeER + 1
+
+balanceNEL :: k v -> f v -> NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+balanceNEL k x l r
+  | sizeEL + sizeER <= 1    = NonEmptyDMap sizeEX k x (Bin' l) r
+  | sizeER >= delta*sizeEL  = let
+      r' = case r of
+          Tip -> error "balanceNEL: Declared sizeE of 'r' is greater than 1, shouldn't be empty"
+          Bin' ne -> ne
+    in rotateL k x (Bin' l) r'
+  | sizeEL >= delta*sizeER  = rotateR k x l r
+  | otherwise             = NonEmptyDMap sizeEX k x (Bin' l) r
+  where
+    sizeEL = sizeNE l
+    sizeER = sizeE r
+    sizeEX = sizeEL + sizeER + 1
+
+balanceNER :: k v -> f v -> DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+balanceNER k x l r
+  | sizeEL + sizeER <= 1    = NonEmptyDMap sizeEX k x l (Bin' r)
+  | sizeER >= delta*sizeEL  = rotateL k x l r
+  | sizeEL >= delta*sizeER  = let
+      l' = case l of
+          Tip -> error "balanceNER: Declared sizeE of 'l' is greater than 1, shouldn't be empty"
+          Bin' ne -> ne
+    in rotateR k x l' (Bin' r)
+  | otherwise             = NonEmptyDMap sizeEX k x l (Bin' r)
+  where
+    sizeEL = sizeE l
+    sizeER = sizeNE r
+    sizeEX = sizeEL + sizeER + 1
+
+
+balanceE :: k v -> f v -> DMap k f -> DMap k f -> NonEmptyDMap k f
+balanceE k x l r
+  | sizeEL + sizeER <= 1    = NonEmptyDMap sizeEX k x l r
+  | sizeER >= delta*sizeEL  = let
+      r' = case r of
+          Tip -> error "balance: Declared sizeE of 'r' is greater than 1, shouldn't be empty"
+          Bin' ne -> ne
+    in rotateL k x l r'
+  | sizeEL >= delta*sizeER  = let
+      l' = case l of
+          Tip -> error "balance: Declared sizeE of 'l' is greater than 1, shouldn't be empty"
+          Bin' ne -> ne
+    in rotateR k x l' r
+  | otherwise             = NonEmptyDMap sizeEX k x l r
+  where
+    sizeEL = sizeE l
+    sizeER = sizeE r
+    sizeEX = sizeEL + sizeER + 1
 
 -- rotate
-rotateL :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-rotateL k x l r@(Bin _ _ _ ly ry)
-  | size ly < ratio*size ry = singleL k x l r
+rotateL :: k v -> f v -> DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+rotateL k x l r@(NonEmptyDMap _ _ _ ly ry)
+  | sizeE ly < ratio*sizeE ry = singleL k x l r
   | otherwise               = doubleL k x l r
-rotateL _ _ _ Tip = error "rotateL Tip"
 
-rotateR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-rotateR k x l@(Bin _ _ _ ly ry) r
-  | size ry < ratio*size ly = singleR k x l r
+rotateR :: k v -> f v -> NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+rotateR k x l@(NonEmptyDMap _ _ _ ly ry) r
+  | sizeE ry < ratio*sizeE ly = singleR k x l r
   | otherwise               = doubleR k x l r
-rotateR _ _ Tip _ = error "rotateR Tip"
 
 -- basic rotations
-singleL, singleR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-singleL k1 x1 t1 (Bin _ k2 x2 t2 t3)  = bin k2 x2 (bin k1 x1 t1 t2) t3
-singleL _ _ _ Tip = error "singleL Tip"
-singleR k1 x1 (Bin _ k2 x2 t1 t2) t3  = bin k2 x2 t1 (bin k1 x1 t2 t3)
-singleR _ _ Tip _ = error "singleR Tip"
+singleL :: k v -> f v -> DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+singleL k1 x1 t1 (NonEmptyDMap _ k2 x2 t2 t3)  = binNE k2 x2 (binE k1 x1 t1 t2) t3
 
-doubleL, doubleR :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-doubleL k1 x1 t1 (Bin _ k2 x2 (Bin _ k3 x3 t2 t3) t4) = bin k3 x3 (bin k1 x1 t1 t2) (bin k2 x2 t3 t4)
+singleR :: k v -> f v -> NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+singleR k1 x1 (NonEmptyDMap _ k2 x2 t1 t2) t3  = binNE k2 x2 t1 (binE k1 x1 t2 t3)
+
+doubleL :: k v -> f v -> DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
+doubleL k1 x1 t1 (NonEmptyDMap _ k2 x2 (Bin _ k3 x3 t2 t3) t4) = binNE k3 x3 (binE k1 x1 t1 t2) (binE k2 x2 t3 t4)
 doubleL _ _ _ _ = error "doubleL"
-doubleR k1 x1 (Bin _ k2 x2 t1 (Bin _ k3 x3 t2 t3)) t4 = bin k3 x3 (bin k2 x2 t1 t2) (bin k1 x1 t3 t4)
+
+doubleR :: k v -> f v -> NonEmptyDMap k f -> DMap k f -> NonEmptyDMap k f
+doubleR k1 x1 (NonEmptyDMap _ k2 x2 t1 (Bin _ k3 x3 t2 t3)) t4 = binNE k3 x3 (binE k2 x2 t1 t2) (binE k1 x1 t3 t4)
 doubleR _ _ _ _ = error "doubleR"
 
 {--------------------------------------------------------------------
-  The bin constructor maintains the size of the tree
+  The bin constructor maintains the sizeE of the tree
 --------------------------------------------------------------------}
-bin :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
-bin k x l r
-  = Bin (size l + size r + 1) k x l r
+binNE :: k v -> f v -> DMap k f -> DMap k f -> NonEmptyDMap k f
+binNE k x l r = NonEmptyDMap (sizeE l + sizeE r + 1) k x l r
+
+binE :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
+binE k x l r = Bin' $! binNE k x l r
 
 {--------------------------------------------------------------------
   Utility functions that return sub-ranges of the original
@@ -332,7 +445,7 @@ bin k x l r
 
   [split k t]           Returns two trees [l] and [r] where all keys
                         in [l] are <[k] and all keys in [r] are >[k].
-  [splitLookup k t]     Just like [split] but also returns whether [k]
+  [splitLookupE k t]     Just like [split] but also returns whether [k]
                         was found in the tree.
 --------------------------------------------------------------------}
 
@@ -349,15 +462,15 @@ trim cmplo cmphi t@(Bin _ kx _ l r)
               GT -> t
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
-              
-trimLookupLo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
-trimLookupLo _  _     Tip = (Nothing,Tip)
-trimLookupLo lo cmphi t@(Bin _ kx x l r)
+
+trimLookupELo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
+trimLookupELo _  _     Tip = (Nothing,Tip)
+trimLookupELo lo cmphi t@(Bin _ kx x l r)
   = case compare lo (This kx) of
       LT -> case cmphi (This kx) of
-              GT -> (lookupAssoc lo t, t)
-              _  -> trimLookupLo lo cmphi l
-      GT -> trimLookupLo lo cmphi r
+              GT -> (lookupAssocE lo t, t)
+              _  -> trimLookupELo lo cmphi l
+      GT -> trimLookupELo lo cmphi r
       EQ -> (Just (kx :=> x),trim (compare lo) cmphi r)
 
 
@@ -370,7 +483,7 @@ filterGt cmp = go
   where
     go Tip              = Tip
     go (Bin _ kx x l r) = case cmp (This kx) of
-              LT -> combine kx x (go l) r
+              LT -> Bin' $! combineE kx x (go l) r
               GT -> go r
               EQ -> r
 
@@ -380,5 +493,5 @@ filterLt cmp = go
     go Tip              = Tip
     go (Bin _ kx x l r) = case cmp (This kx) of
           LT -> go l
-          GT -> combine kx x l (go r)
+          GT -> Bin' $! combineE kx x l (go r)
           EQ -> l
