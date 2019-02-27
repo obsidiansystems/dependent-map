@@ -227,10 +227,10 @@ mergeNER :: DMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
 mergeNER Tip r = r
 mergeNER (Bin' l) r = mergeNE l r
 
-merge :: DMap k f -> DMap k f -> DMap k f
-merge Tip r   = r
-merge l Tip   = l
-merge (Bin' l) (Bin' r) = Bin' $! mergeNE l r
+mergeE :: DMap k f -> DMap k f -> DMap k f
+mergeE Tip r   = r
+mergeE l Tip   = l
+mergeE (Bin' l) (Bin' r) = Bin' $! mergeNE l r
 
 {--------------------------------------------------------------------
   [glue l r]: glues two trees together.
@@ -238,23 +238,15 @@ merge (Bin' l) (Bin' r) = Bin' $! mergeNE l r
 --------------------------------------------------------------------}
 glueNE :: NonEmptyDMap k f -> NonEmptyDMap k f -> NonEmptyDMap k f
 glueNE l r
-    | sizeNE l > sizeNE r = case deleteFindMax l of
+    | sizeNE l > sizeNE r = case maxViewWithKeyNE l of
         (km :=> m, l') -> balanceNER km m l' r
-    | otherwise = case deleteFindMin r of
+    | otherwise = case minViewWithKeyNE r of
         (km :=> m, r') -> balanceNEL km m l r'
 
-glue :: DMap k f -> DMap k f -> DMap k f
-glue Tip r = r
-glue l Tip = l
-glue (Bin' l) (Bin' r) = Bin' $! glueNE l r
-
--- | /O(log n)/. Delete and find the minimal element.
---
--- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")])
--- > deleteFindMin                                            Error: can not return the minimal element of an empty map
-
-deleteFindMin :: NonEmptyDMap k f -> (DSum k f, DMap k f)
-deleteFindMin = minViewWithKeyNE
+glueE :: DMap k f -> DMap k f -> DMap k f
+glueE Tip r = r
+glueE l Tip = l
+glueE (Bin' l) (Bin' r) = Bin' $! glueNE l r
 
 -- | A strict pair.
 data (:*:) a b = !a :*: !b
@@ -285,9 +277,9 @@ minViewWithKeyNE (NonEmptyDMap _ k0 x0 l0 r0) = toPair $ go k0 x0 l0 r0
 
 -- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
-minViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
-minViewWithKey Tip = Nothing
-minViewWithKey (Bin' ne) = Just $! minViewWithKeyNE ne
+minViewWithKeyE :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+minViewWithKeyE Tip = Nothing
+minViewWithKeyE (Bin' ne) = Just $! minViewWithKeyNE ne
 
 -- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
@@ -302,17 +294,10 @@ maxViewWithKeyNE (NonEmptyDMap _ k0 x0 l0 r0) = toPair $ go k0 x0 l0 r0
 
 -- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
 -- the map stripped of that element, or 'Nothing' if passed an empty map.
-maxViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
-maxViewWithKey Tip = Nothing
-maxViewWithKey (Bin' ne) = Just $! maxViewWithKeyNE ne
+maxViewWithKeyE :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+maxViewWithKeyE Tip = Nothing
+maxViewWithKeyE (Bin' ne) = Just $! maxViewWithKeyNE ne
 
--- | /O(log n)/. Delete and find the maximal element.
---
--- > deleteFindMax (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((10,"c"), fromList [(3,"b"), (5,"a")])
--- > deleteFindMax empty                                      Error: can not return the maximal element of an empty map
-
-deleteFindMax :: NonEmptyDMap k f -> (DSum k f, DMap k f)
-deleteFindMax = maxViewWithKeyNE
 
 
 {--------------------------------------------------------------------

@@ -445,6 +445,24 @@ deleteMin = fst makeDeleteMin
 deleteMax :: DMap k f -> DMap k f
 deleteMax = fst makeDeleteMax
 
+-- | /O(log n)/. Delete and find the minimal element.
+--
+-- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")])
+-- > deleteFindMin                                            Error: can not return the minimal element of an empty map
+deleteFindMin :: DMap k f -> (DSum k f, DMap k f)
+deleteFindMin t = case minViewWithKey t of
+  Nothing -> error "Error: can not return the minimal element of an empty map"
+  Just x -> x
+
+-- | /O(log n)/. Delete and find the maximal element.
+--
+-- > deleteFindMax (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((10,"c"), fromList [(3,"b"), (5,"a")])
+-- > deleteFindMax empty                                      Error: can not return the maximal element of an empty map
+deleteFindMax :: DMap k f -> (DSum k f, DMap k f)
+deleteFindMax t = case maxViewWithKey t of
+  Nothing -> error "Error: can not return the maximal element of an empty map"
+  Just x -> x
+
 -- | /O(log n)/. Update the value at the minimal key.
 updateMinWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> DMap k f -> DMap k f
 updateMinWithKey f = fst $ makeUpdateMinWithKey f
@@ -452,6 +470,16 @@ updateMinWithKey f = fst $ makeUpdateMinWithKey f
 -- | /O(log n)/. Update the value at the maximal key.
 updateMaxWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> DMap k f -> DMap k f
 updateMaxWithKey f = fst $ makeUpdateMaxWithKey f
+
+-- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+minViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+minViewWithKey = minViewWithKeyE
+
+-- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
+-- the map stripped of that element, or 'Nothing' if passed an empty map.
+maxViewWithKey :: forall k f . DMap k f -> Maybe (DSum k f, DMap k f)
+maxViewWithKey = maxViewWithKeyE
 
 {--------------------------------------------------------------------
   Union.
