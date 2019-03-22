@@ -17,13 +17,12 @@ description:            Provides a type called @DMap@ which generalizes
                         @Data.Map.Map@, allowing keys to specify the type
                         of value that can be associated with them.
 
-tested-with:            GHC == 7.0.4,
-                        GHC == 7.2.2,
-                        GHC == 7.4.2,
-                        GHC == 7.6.3,
-                        GHC == 7.8.4,
-                        GHC == 7.10.1,
-                        GHC == 7.11
+extra-source-files:     ChangeLog.md
+
+tested-with:            GHC == 8.0.2,
+                        GHC == 8.2.2,
+                        GHC == 8.4.4,
+                        GHC == 8.6.3
 
 source-repository head
   type:     git
@@ -40,9 +39,7 @@ Library
     other-modules:      Data.Dependent.Map.Typeable
   if impl(ghc < 8)
     build-depends:      semigroups
-  build-depends:        base >= 3 && < 5,
+  build-depends:        base >= 4.9 && < 5,
                         containers,
-                        dependent-sum >= 0.3.2,
+                        dependent-sum >= 0.5,
                         constraints-extras >= 0.2.3.0 && < 0.3
-  if impl(ghc >= 7.2) && impl(ghc < 7.8)
-    ghc-options:        -trust base -trust dependent-sum
