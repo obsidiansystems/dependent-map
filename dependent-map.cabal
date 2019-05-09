@@ -35,10 +35,6 @@ Library
                         Data.Dependent.Map.Lens,
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
-  if impl(ghc < 7.8)
-    other-modules:      Data.Dependent.Map.Typeable
-  if impl(ghc < 8)
-    build-depends:      semigroups
   build-depends:        base >= 4.9 && < 5,
                         containers,
                         dependent-sum >= 0.5,
