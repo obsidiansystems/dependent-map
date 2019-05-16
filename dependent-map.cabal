@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.2.5.1
+version:                0.2.5.2
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -38,4 +38,4 @@ Library
   build-depends:        base >= 4.9 && < 5,
                         containers,
                         dependent-sum >= 0.5,
-                        constraints-extras >= 0.2.3.0 && < 0.3
+                        constraints-extras >= 0.2.3.0 && < 0.4
