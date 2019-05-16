@@ -10,6 +10,8 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+
 #endif
 module Data.Dependent.Map
     ( DMap
