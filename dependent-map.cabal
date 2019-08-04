@@ -17,6 +17,9 @@ description:            Provides a type called @DMap@ which generalizes
                         @Data.Map.Map@, allowing keys to specify the type
                         of value that can be associated with them.
 
+extra-source-files: ChangeLog.md
+                    README.md
+
 tested-with:            GHC == 8.0.2,
                         GHC == 8.2.2,
                         GHC == 8.4.4,
