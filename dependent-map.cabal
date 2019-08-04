@@ -34,6 +34,6 @@ Library
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
   build-depends:        base >= 3 && < 5,
-                        containers,
-                        dependent-sum >= 0.6,
+                        containers >= 0.6 && <0.7,
+                        dependent-sum >= 0.6.1 && < 0.7,
                         constraints-extras >= 0.2.3.0 && < 0.4
