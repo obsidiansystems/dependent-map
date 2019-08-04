@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.2.5.1
+version:                0.3
 stability:              provisional
 
 cabal-version:          >= 1.6
@@ -17,13 +17,13 @@ description:            Provides a type called @DMap@ which generalizes
                         @Data.Map.Map@, allowing keys to specify the type
                         of value that can be associated with them.
 
-tested-with:            GHC == 7.0.4,
-                        GHC == 7.2.2,
-                        GHC == 7.4.2,
-                        GHC == 7.6.3,
-                        GHC == 7.8.4,
-                        GHC == 7.10.1,
-                        GHC == 7.11
+extra-source-files: ChangeLog.md
+                    README.md
+
+tested-with:            GHC == 8.0.2,
+                        GHC == 8.2.2,
+                        GHC == 8.4.4,
+                        GHC == 8.6.4
 
 source-repository head
   type:     git
@@ -36,12 +36,7 @@ Library
                         Data.Dependent.Map.Lens,
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
-  if impl(ghc < 7.8)
-    other-modules:      Data.Dependent.Map.Typeable
-  if impl(ghc < 8)
-    build-depends:      semigroups
   build-depends:        base >= 3 && < 5,
-                        containers,
-                        dependent-sum >= 0.3.2
-  if impl(ghc >= 7.2) && impl(ghc < 7.8)
-    ghc-options:        -trust base -trust dependent-sum
+                        containers >= 0.6 && <0.7,
+                        dependent-sum >= 0.6.1 && < 0.7,
+                        constraints-extras >= 0.2.3.0 && < 0.4
