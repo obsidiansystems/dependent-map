@@ -162,7 +162,9 @@ import Data.Maybe (isJust)
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
 #endif
+#if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup
+#endif
 import Data.Some
 import Text.Read
 import Data.Dependent.Map.PtrEquality
