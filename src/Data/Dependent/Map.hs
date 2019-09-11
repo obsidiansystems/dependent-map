@@ -68,8 +68,13 @@ module Data.Dependent.Map
     -- * Traversal
     -- ** Map
     , map
+    , ffor
     , mapWithKey
+    , fforWithKey
+    , traverseWithKey_
+    , forWithKey_
     , traverseWithKey
+    , forWithKey
     , mapAccumLWithKey
     , mapAccumRWithKey
     , mapKeysWith
@@ -831,12 +836,41 @@ map f = go
     go Tip = Tip
     go (Bin sx kx x l r) = Bin sx kx (f x) (go l) (go r)
 
+-- | /O(n)/.
+-- @'ffor' == 'flip' 'map'@ except we cannot actually use
+-- 'flip' because of the lack of impredicative types.
+ffor :: DMap k f -> (forall v. f v -> g v) -> DMap k g
+ffor m f = map f m
+
 -- | /O(n)/. Map a function over all values in the map.
 mapWithKey :: (forall v. k v -> f v -> g v) -> DMap k f -> DMap k g
 mapWithKey f = go
   where
     go Tip = Tip
     go (Bin sx kx x l r) = Bin sx kx (f kx x) (go l) (go r)
+
+-- | /O(n)/.
+-- @'fforWithKey' == 'flip' 'mapWithKey'@ except we cannot actually use
+-- 'flip' because of the lack of impredicative types.
+fforWithKey :: DMap k f -> (forall v. k v -> f v -> g v) -> DMap k g
+fforWithKey m f = mapWithKey f m
+
+-- | /O(n)/.
+-- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
+-- That is, behaves exactly like a regular 'traverse' except that the traversing
+-- function also has access to the key associated with a value.
+traverseWithKey_ :: Applicative t => (forall v. k v -> f v -> t ()) -> DMap k f -> t ()
+traverseWithKey_ f = go
+  where
+    go Tip = pure ()
+    go (Bin 1 k v _ _) = f k v
+    go (Bin s k v l r) = go l *> f k v *> go r
+
+-- | /O(n)/.
+-- @'forWithKey' == 'flip' 'traverseWithKey'@ except we cannot actually use
+-- 'flip' because of the lack of impredicative types.
+forWithKey_ :: Applicative t => DMap k f -> (forall v. k v -> f v -> t ()) -> t ()
+forWithKey_ m f = traverseWithKey_ f m
 
 -- | /O(n)/.
 -- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
@@ -848,6 +882,12 @@ traverseWithKey f = go
     go Tip = pure Tip
     go (Bin 1 k v _ _) = (\v' -> Bin 1 k v' Tip Tip) <$> f k v
     go (Bin s k v l r) = flip (Bin s k) <$> go l <*> f k v <*> go r
+
+-- | /O(n)/.
+-- @'forWithKey' == 'flip' 'traverseWithKey'@ except we cannot actually use
+-- 'flip' because of the lack of impredicative types.
+forWithKey :: Applicative t => DMap k f -> (forall v. k v -> f v -> t (g v)) -> t (DMap k g)
+forWithKey m f = traverseWithKey f m
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
 -- argument through the map in ascending order of keys.
