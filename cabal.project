@@ -1,0 +1,4 @@
+packages: .
+
+allow-newer: constraints-extras:base
+allow-newer: constraints-extras:template-haskell
