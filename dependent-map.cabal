@@ -23,7 +23,8 @@ extra-source-files: ChangeLog.md
 tested-with:            GHC == 8.0.2,
                         GHC == 8.2.2,
                         GHC == 8.4.4,
-                        GHC == 8.6.4
+                        GHC == 8.6.5,
+                        GHC == 8.8.1
 
 source-repository head
   type:     git
@@ -37,6 +38,6 @@ Library
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
   build-depends:        base >= 3 && < 5,
-                        containers >= 0.6 && <0.7,
+                        containers >= 0.5.7.1 && <0.7,
                         dependent-sum >= 0.6.1 && < 0.7,
                         constraints-extras >= 0.2.3.0 && < 0.4
