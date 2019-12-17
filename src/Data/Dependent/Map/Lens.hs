@@ -11,10 +11,6 @@ module Data.Dependent.Map.Lens
 
 import           Prelude             hiding (lookup)
 
-#if !MIN_VERSION_base(4,8,0)
-import           Control.Applicative (Applicative (pure))
-#endif
-
 import           Data.Dependent.Map  (DMap, alterF, insert, lookup)
 
 import           Data.GADT.Compare   (GCompare)
