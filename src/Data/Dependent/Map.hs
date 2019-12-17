@@ -153,6 +153,7 @@ import Data.Dependent.Map.Internal
 #if !MIN_VERSION_base(4,7,0)
 import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
 #endif
+import Data.Typeable
 
 import Data.Dependent.Sum
 import Data.Constraint.Extras
@@ -959,7 +960,7 @@ foldlWithKey' f = go
 
 keys  :: DMap k f -> [Some k]
 keys m
-  = [This k | (k :=> _) <- assocs m]
+  = [Some k | (k :=> _) <- assocs m]
 
 -- | /O(n)/. Return all key\/value pairs in the map in ascending key order.
 assocs :: DMap k f -> [DSum k f]
@@ -1234,7 +1235,7 @@ ordered t
     bounded lo hi t'
       = case t' of
           Tip              -> True
-          Bin _ kx _ l r  -> (lo (This kx)) && (hi (This kx)) && bounded lo (< This kx) l && bounded (> This kx) hi r
+          Bin _ kx _ l r  -> (lo (Some kx)) && (hi (Some kx)) && bounded lo (< Some kx) l && bounded (> Some kx) hi r
 
 -- | Exported only for "Debug.QuickCheck"
 balanced :: DMap k f -> Bool
