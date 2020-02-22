@@ -91,7 +91,7 @@ lookup k = k `seq` go
                 GEQ -> Just x
 
 lookupAssoc :: forall k f v. GCompare k => Some k -> DMap k f -> Maybe (DSum k f)
-lookupAssoc (This k) = k `seq` go
+lookupAssoc (Some k) = k `seq` go
   where
     go :: DMap k f -> Maybe (DSum k f)
     go Tip = Nothing
@@ -344,8 +344,8 @@ bin k x l r
 trim :: (Some k -> Ordering) -> (Some k -> Ordering) -> DMap k f -> DMap k f
 trim _     _     Tip = Tip
 trim cmplo cmphi t@(Bin _ kx _ l r)
-  = case cmplo (This kx) of
-      LT -> case cmphi (This kx) of
+  = case cmplo (Some kx) of
+      LT -> case cmphi (Some kx) of
               GT -> t
               _  -> trim cmplo cmphi l
       _  -> trim cmplo cmphi r
@@ -353,8 +353,8 @@ trim cmplo cmphi t@(Bin _ kx _ l r)
 trimLookupLo :: GCompare k => Some k -> (Some k -> Ordering) -> DMap k f -> (Maybe (DSum k f), DMap k f)
 trimLookupLo _  _     Tip = (Nothing,Tip)
 trimLookupLo lo cmphi t@(Bin _ kx x l r)
-  = case compare lo (This kx) of
-      LT -> case cmphi (This kx) of
+  = case compare lo (Some kx) of
+      LT -> case cmphi (Some kx) of
               GT -> (lookupAssoc lo t, t)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
@@ -369,7 +369,7 @@ filterGt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
 filterGt cmp = go
   where
     go Tip              = Tip
-    go (Bin _ kx x l r) = case cmp (This kx) of
+    go (Bin _ kx x l r) = case cmp (Some kx) of
               LT -> combine kx x (go l) r
               GT -> go r
               EQ -> r
@@ -378,7 +378,7 @@ filterLt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
 filterLt cmp = go
   where
     go Tip              = Tip
-    go (Bin _ kx x l r) = case cmp (This kx) of
+    go (Bin _ kx x l r) = case cmp (Some kx) of
           LT -> go l
           GT -> combine kx x l (go r)
           EQ -> l
