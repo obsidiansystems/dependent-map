@@ -152,6 +152,8 @@ import Control.Applicative (Applicative(..), (<$>))
 import Data.Dependent.Map.Internal
 #if !MIN_VERSION_base(4,7,0)
 import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
+#else
+import Data.Typeable ((:~:)(..))
 #endif
 
 import Data.Dependent.Sum
