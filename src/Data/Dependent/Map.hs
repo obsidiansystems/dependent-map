@@ -1,18 +1,14 @@
-{-# LANGUAGE GADTs, RankNTypes #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
-{-# LANGUAGE Trustworthy #-}
-#endif
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
-
-#endif
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Data.Dependent.Map
     ( DMap
     , DSum(..), Some(..)
@@ -146,26 +142,22 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup, map)
 import qualified Prelude
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative (Applicative(..), (<$>))
-#endif
-import Data.Dependent.Map.Internal
-#if !MIN_VERSION_base(4,7,0)
-import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
+import Data.Constraint.Extras (Has', has')
+import Data.Dependent.Sum (DSum((:=>)))
+import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
+import Data.GADT.Show (GRead, GShow)
+import Data.Maybe (isJust)
+import Data.Some (Some, mkSome)
+import Data.Typeable ((:~:)(Refl))
+import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
+                  readListPrecDefault, readPrec)
+
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup (Semigroup, (<>))
 #endif
 
-import Data.Dependent.Sum
-import Data.Constraint.Extras
-import Data.GADT.Compare
-import Data.GADT.Show
-import Data.Maybe (isJust)
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
-import Data.Semigroup
-import Data.Some
-import Text.Read
-import Data.Dependent.Map.PtrEquality
+import Data.Dependent.Map.Internal
+import Data.Dependent.Map.PtrEquality (ptrEq)
 
 instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
@@ -959,7 +951,7 @@ foldlWithKey' f = go
 
 keys  :: DMap k f -> [Some k]
 keys m
-  = [This k | (k :=> _) <- assocs m]
+  = [mkSome k | (k :=> _) <- assocs m]
 
 -- | /O(n)/. Return all key\/value pairs in the map in ascending key order.
 assocs :: DMap k f -> [DSum k f]
@@ -1234,7 +1226,7 @@ ordered t
     bounded lo hi t'
       = case t' of
           Tip              -> True
-          Bin _ kx _ l r  -> (lo (This kx)) && (hi (This kx)) && bounded lo (< This kx) l && bounded (> This kx) hi r
+          Bin _ kx _ l r  -> lo (mkSome kx) && hi (mkSome kx) && bounded lo (< mkSome kx) l && bounded (> mkSome kx) hi r
 
 -- | Exported only for "Debug.QuickCheck"
 balanced :: DMap k f -> Bool
