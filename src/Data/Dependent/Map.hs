@@ -146,27 +146,16 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup, map)
 import qualified Prelude
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative (Applicative(..), (<$>))
-#endif
-import Data.Dependent.Map.Internal
-#if !MIN_VERSION_base(4,7,0)
-import Data.Dependent.Map.Typeable ({- instance Typeable ... -})
-#else
-import Data.Typeable ((:~:)(..))
-#endif
-
-import Data.Dependent.Sum
 import Data.Constraint.Extras
+import Data.Dependent.Sum
 import Data.GADT.Compare
 import Data.GADT.Show
 import Data.Maybe (isJust)
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
 import Data.Semigroup
 import Data.Some
 import Text.Read
+
+import Data.Dependent.Map.Internal
 import Data.Dependent.Map.PtrEquality
 
 instance (GCompare k) => Monoid (DMap k f) where
