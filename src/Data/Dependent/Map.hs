@@ -146,17 +146,19 @@ module Data.Dependent.Map
 
 import Prelude hiding (null, lookup, map)
 import qualified Prelude
-import Data.Constraint.Extras
-import Data.Dependent.Sum
-import Data.GADT.Compare
-import Data.GADT.Show
+import Data.Constraint.Extras (Has', has')
+import Data.Dependent.Sum (DSum((:=>)))
+import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
+import Data.GADT.Show (GRead, GShow)
 import Data.Maybe (isJust)
 import Data.Semigroup
-import Data.Some
-import Text.Read
+import Data.Some (Some(..))
+import Data.Typeable ((:~:)(Refl))
+import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
+                  readListPrecDefault, readPrec)
 
 import Data.Dependent.Map.Internal
-import Data.Dependent.Map.PtrEquality
+import Data.Dependent.Map.PtrEquality (ptrEq)
 
 instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
