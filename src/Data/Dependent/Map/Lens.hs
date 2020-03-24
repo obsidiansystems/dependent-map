@@ -1,3 +1,4 @@
+{-# LANGUAGE PolyKinds #-}
 -- |
 -- Some functions for using lenses with 'DMap'.
 module Data.Dependent.Map.Lens
