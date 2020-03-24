@@ -17,7 +17,7 @@ import           Data.GADT.Compare   (GCompare)
 
 -- |
 -- These functions have been specialised for use with 'DMap' but without any of the
--- specific 'lens' types used so that we have compatilibity without needing the
+-- specific 'lens' types used so that we have compatibility without needing the
 -- dependency just for these functions.
 --
 

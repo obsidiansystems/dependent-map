@@ -457,7 +457,7 @@ alter f k = k `seq` go
                        Just x' -> Bin sx kx x' l r
                        Nothing -> glue l r
 
--- | Works the same as 'alter' except the new value is return in some 'Functor' @f@.
+-- | Works the same as 'alter' except the new value is returned in some 'Functor' @f@.
 -- In short : @(\v' -> alter (const v') k dm) <$> f (lookup k dm)@
 alterF :: forall k f v g. (GCompare  k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> DMap k g -> f (DMap k g)
 alterF k f = go
@@ -850,7 +850,7 @@ traverseWithKey f = go
     go (Bin s k v l r) = flip (Bin s k) <$> go l <*> f k v <*> go r
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
--- argument throught the map in ascending order of keys.
+-- argument through the map in ascending order of keys.
 mapAccumLWithKey :: (forall v. a -> k v -> f v -> (a, g v)) -> a -> DMap k f -> (a, DMap k g)
 mapAccumLWithKey f = go
   where
