@@ -6,10 +6,10 @@ cabal-version:          >= 1.6
 build-type:             Simple
 
 author:                 James Cook <mokus@deepbondi.net>
-maintainer:             James Cook <mokus@deepbondi.net>
+maintainer:             Obsidian Systems, LLC <maintainer@obsidian.systems>
 license:                OtherLicense
 license-file:           LICENSE
-homepage:               https://github.com/mokus0/dependent-map
+homepage:               https://github.com/obsidiansystems/dependent-map
 
 category:               Data, Dependent Types
 synopsis:               Dependent finite maps (partial dependent products)
@@ -24,11 +24,11 @@ tested-with:            GHC == 8.0.2,
                         GHC == 8.2.2,
                         GHC == 8.4.4,
                         GHC == 8.6.5,
-                        GHC == 8.8.1
+                        GHC == 8.8.3
 
 source-repository head
   type:     git
-  location: git://github.com/mokus0/dependent-map.git
+  location: https://github.com/obsidiansystems/dependent-map
 
 Library
   hs-source-dirs:       src
