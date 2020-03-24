@@ -147,7 +147,7 @@ import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
 import Data.GADT.Show (GRead, GShow)
 import Data.Maybe (isJust)
 import Data.Semigroup
-import Data.Some (Some(..))
+import Data.Some (Some, mkSome)
 import Data.Typeable ((:~:)(Refl))
 import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
                   readListPrecDefault, readPrec)
@@ -947,7 +947,7 @@ foldlWithKey' f = go
 
 keys  :: DMap k f -> [Some k]
 keys m
-  = [Some k | (k :=> _) <- assocs m]
+  = [mkSome k | (k :=> _) <- assocs m]
 
 -- | /O(n)/. Return all key\/value pairs in the map in ascending key order.
 assocs :: DMap k f -> [DSum k f]
@@ -1222,7 +1222,7 @@ ordered t
     bounded lo hi t'
       = case t' of
           Tip              -> True
-          Bin _ kx _ l r  -> (lo (Some kx)) && (hi (Some kx)) && bounded lo (< Some kx) l && bounded (> Some kx) hi r
+          Bin _ kx _ l r  -> lo (mkSome kx) && hi (mkSome kx) && bounded lo (< mkSome kx) l && bounded (> mkSome kx) hi r
 
 -- | Exported only for "Debug.QuickCheck"
 balanced :: DMap k f -> Bool
