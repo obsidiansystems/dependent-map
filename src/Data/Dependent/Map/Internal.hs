@@ -1,15 +1,10 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE CPP #-}
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
-{-# LANGUAGE Safe #-}
-#endif
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-#endif
+{-# LANGUAGE Safe #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 module Data.Dependent.Map.Internal where
 
 import Data.Dependent.Sum
