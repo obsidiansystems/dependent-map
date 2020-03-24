@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE PolyKinds #-}
 -- |
 -- Some functions for using lenses with 'DMap'.
@@ -11,10 +10,6 @@ module Data.Dependent.Map.Lens
   where
 
 import           Prelude             hiding (lookup)
-
-#if !MIN_VERSION_base(4,8,0)
-import           Control.Applicative (Applicative (pure))
-#endif
 
 import           Data.Dependent.Map  (DMap, alterF, insert, lookup)
 
