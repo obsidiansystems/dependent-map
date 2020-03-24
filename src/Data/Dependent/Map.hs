@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
@@ -146,11 +147,14 @@ import Data.Dependent.Sum (DSum((:=>)))
 import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
 import Data.GADT.Show (GRead, GShow)
 import Data.Maybe (isJust)
-import Data.Semigroup
 import Data.Some (Some, mkSome)
 import Data.Typeable ((:~:)(Refl))
 import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
                   readListPrecDefault, readPrec)
+
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup (Semigroup, (<>))
+#endif
 
 import Data.Dependent.Map.Internal
 import Data.Dependent.Map.PtrEquality (ptrEq)
