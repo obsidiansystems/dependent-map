@@ -6,6 +6,8 @@
 * Drop support for GHC < 8.
 * Update maintainer and GitHub links.
 * Support `dependent-sum` 0.7.
+* Add `ffor`, `fforWithKey`, `forWithKey`, `forWithKey_`, and `traverseWithKey_` to `Data.Dependent.Map`.
+* Enable `PolyKinds` for `Data.Dependent.Map.Lens`.
 
 ## 0.3 - 2019-03-21
 
