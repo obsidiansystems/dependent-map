@@ -1,6 +1,6 @@
 # Revision history for dependent-map
 
-## 0.3.1.0 - 2020-03-24
+## 0.3.1.0 - 2020-03-26
 
 * Drop support for non-GHC compilers.
 * Drop support for GHC < 8.
