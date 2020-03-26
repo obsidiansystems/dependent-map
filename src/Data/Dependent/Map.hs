@@ -11,8 +11,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Dependent.Map
     ( DMap
-    , DSum(..), Some(..)
-    , GCompare(..), GOrdering(..)
 
     -- * Operators
     , (!), (\\)
@@ -152,7 +150,7 @@ import Data.Dependent.Sum (DSum((:=>)))
 import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
 import Data.GADT.Show (GRead, GShow)
 import Data.Maybe (isJust)
-import Data.Some (Some(..), mkSome)
+import Data.Some (Some, mkSome)
 import Data.Typeable ((:~:)(Refl))
 import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
                   readListPrecDefault, readPrec)
