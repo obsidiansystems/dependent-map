@@ -175,7 +175,7 @@ instance (GCompare k) => Semigroup (DMap k f) where
 {--------------------------------------------------------------------
   Operators
 --------------------------------------------------------------------}
-infixl 9 !,\\ --
+infixl 9 \\,! -- \\ at the end of the line means line continuation
 
 -- | /O(log n)/. Find the value at a key.
 -- Calls 'error' when the element can not be found.
