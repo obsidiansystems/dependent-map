@@ -1,6 +1,6 @@
 # Revision history for dependent-map
 
-## 0.4.0.0
+## 0.4.0.0 - 2020-03-26
 
 * Stop re-exporting `Some(..)`, `GCompare(..)`, and `GOrdering(..)` from `dependent-sum` (which itself re-exports from `some` in some versions).
 * Stop re-exporting `DSum(..)` from `dependent-sum`.
