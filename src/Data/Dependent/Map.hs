@@ -143,7 +143,7 @@ module Data.Dependent.Map
     , valid
     ) where
 
-import Prelude hiding (null, lookup, map)
+import Prelude hiding (filter, null, lookup, map)
 import qualified Prelude
 import Data.Constraint.Extras (Has', has')
 import Data.Dependent.Sum (DSum((:=>)))
@@ -765,6 +765,10 @@ isProperSubmapOfBy f t1 t2
 {--------------------------------------------------------------------
   Filter and partition
 --------------------------------------------------------------------}
+
+-- | /O(n)/. Filter all values that satisfy the predicate.
+filter :: GCompare k => (forall v. f v -> Bool) -> DMap k f -> DMap k f
+filter f = filterWithKey (const f)
 
 -- | /O(n)/. Filter all keys\/values that satisfy the predicate.
 filterWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> DMap k f
