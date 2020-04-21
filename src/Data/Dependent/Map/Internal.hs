@@ -1,16 +1,20 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE Safe #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Dependent.Map.Internal where
 
+import Control.Applicative (liftA3)
 import Data.Dependent.Sum (DSum((:=>)))
 import Data.GADT.Compare (GCompare, GOrdering(..), gcompare)
 import Data.Some (Some, mkSome, withSome)
 import Data.Typeable (Typeable)
+
+import Data.Dependent.Map.PtrEquality (ptrEq)
 
 -- |Dependent maps: 'k' is a GADT-like thing with a facility for
 -- rediscovering its type parameter, elements of which function as identifiers
@@ -33,6 +37,87 @@ data DMap k f where
         -> {- right -} !(DMap k f)
         -> DMap k f
     deriving Typeable
+
+-- | /O(n)/. Filter all keys\/values that satisfy the predicate.
+filterWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> DMap k f
+filterWithKey p = go
+  where
+    go Tip = Tip
+    go t@(Bin _ kx x l r)
+      | p kx x    = if l' `ptrEq` l && r' `ptrEq` r
+                    then t
+                    else combine kx x l' r'
+      | otherwise = link2 l' r'
+      where !l' = go l
+            !r' = go r
+
+-- | /O(n)/. Filter keys and values using an 'Applicative'
+-- predicate.
+filterWithKeyA :: (GCompare k, Applicative t) => (forall v. k v -> f v -> t Bool) -> DMap k f -> t (DMap k f)
+filterWithKeyA _ Tip = pure Tip
+filterWithKeyA p t@(Bin _ kx x l r) =
+  liftA3 combine' (p kx x) (filterWithKeyA p l) (filterWithKeyA p r)
+  where
+    combine' True pl pr
+      | pl `ptrEq` l && pr `ptrEq` r = t
+      | otherwise = combine kx x pl pr
+    combine' False pl pr = link2 pl pr
+
+-- | /O(n)/. Map keys\/values and collect the 'Just' results.
+mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
+mapMaybeWithKey f = go
+  where
+    go Tip = Tip
+    go (Bin _ kx x l r) = case f kx x of
+        Just y  -> combine kx y (go l) (go r)
+        Nothing -> link2 (go l) (go r)
+
+-- | /O(n)/. Map a function over all values in the map.
+mapWithKey :: (forall v. k v -> f v -> g v) -> DMap k f -> DMap k g
+mapWithKey f = go
+  where
+    go Tip = Tip
+    go (Bin sx kx x l r) = Bin sx kx (f kx x) (go l) (go r)
+
+-- | /O(n)/.
+-- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
+-- That is, behaves exactly like a regular 'traverse' except that the traversing
+-- function also has access to the key associated with a value.
+traverseWithKey :: Applicative t => (forall v. k v -> f v -> t (g v)) -> DMap k f -> t (DMap k g)
+traverseWithKey f = go
+  where
+    go Tip = pure Tip
+    go (Bin 1 k v _ _) = (\v' -> Bin 1 k v' Tip Tip) <$> f k v
+    go (Bin s k v l r) = flip (Bin s k) <$> go l <*> f k v <*> go r
+
+-- | /O(n)/. Traverse keys\/values and collect the 'Just' results.
+--
+-- @since UNRELEASED
+traverseMaybeWithKey
+  :: (GCompare k, Applicative t)
+  => (forall v. k v -> f v -> t (Maybe (g v))) -> DMap k f -> t (DMap k g)
+traverseMaybeWithKey f = go
+  where
+    go Tip = pure Tip
+    go (Bin _ kx x Tip Tip) = maybe Tip (\x' -> Bin 1 kx x' Tip Tip) <$> f kx x
+    go (Bin _ kx x l r) = liftA3 combine' (go l) (f kx x) (go r)
+      where
+        combine' !l' mx !r' = case mx of
+          Nothing -> link2 l' r'
+          Just x' -> combine kx x' l' r'
+
+
+-- | /O(log n)/. The expression (@'splitLookup' k map@) splits a map just
+-- like 'split' but also returns @'lookup' k map@.
+splitLookup :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, Maybe (f v), DMap k f)
+splitLookup k = toTriple . go
+  where
+    go :: DMap k f -> Triple' (DMap k f) (Maybe (f v)) (DMap k f)
+    go Tip              = Triple' Tip Nothing Tip
+    go (Bin _ kx x l r) = case gcompare k kx of
+      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
+      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
+      GEQ -> Triple' l (Just x) r
 
 {--------------------------------------------------------------------
   Construction
@@ -112,10 +197,10 @@ lookupAssoc sk = withSome sk $ \k ->
   are valid:
     [glue l r]        Glues [l] and [r] together. Assumes that [l] and
                       [r] are already balanced with respect to each other.
-    [merge l r]       Merges two trees and restores balance.
+    [link2 l r]       Merges two trees and restores balance.
 
   Note: in contrast to Adam's paper, we use (<=) comparisons instead
-  of (<) comparisons in [combine], [merge] and [balance].
+  of (<) comparisons in [combine], [link2] and [balance].
   Quickcheck (on [difference]) showed that this was necessary in order
   to maintain the invariants. It is quite unsatisfactory that I haven't
   been able to find out why this is actually the case! Fortunately, it
@@ -133,7 +218,6 @@ combine kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
   | delta*sizeR <= sizeL  = balance ky y ly (combine kx x ry r)
   | otherwise             = bin kx x l r
 
-
 -- insertMin and insertMax don't perform potentially expensive comparisons.
 insertMax,insertMin :: k v -> f v -> DMap k f -> DMap k f
 insertMax kx x t
@@ -149,14 +233,14 @@ insertMin kx x t
           -> balance ky y (insertMin kx x l) r
 
 {--------------------------------------------------------------------
-  [merge l r]: merges two trees.
+  [link2 l r]: merges two trees.
 --------------------------------------------------------------------}
-merge :: DMap k f -> DMap k f -> DMap k f
-merge Tip r   = r
-merge l Tip   = l
-merge l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
-  | delta*sizeL <= sizeR = balance ky y (merge l ly) ry
-  | delta*sizeR <= sizeL = balance kx x lx (merge rx r)
+link2 :: DMap k f -> DMap k f -> DMap k f
+link2 Tip r   = r
+link2 l Tip   = l
+link2 l@(Bin sizeL kx x lx rx) r@(Bin sizeR ky y ly ry)
+  | delta*sizeL <= sizeR = balance ky y (link2 l ly) ry
+  | delta*sizeR <= sizeL = balance kx x lx (link2 rx r)
   | otherwise            = glue l r
 
 {--------------------------------------------------------------------

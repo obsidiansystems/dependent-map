@@ -63,6 +63,9 @@ module Data.Dependent.Map
     , intersection
     , intersectionWithKey
 
+    -- ** General combining functions
+    -- | See "Data.Dependent.Map.Merge"
+
     -- * Traversal
     -- ** Map
     , map
@@ -72,6 +75,7 @@ module Data.Dependent.Map
     , traverseWithKey_
     , forWithKey_
     , traverseWithKey
+    , traverseMaybeWithKey
     , forWithKey
     , mapAccumLWithKey
     , mapAccumRWithKey
@@ -659,7 +663,7 @@ difference t1 Tip  = t1
 difference t1 (Bin _ k2 _x2 l2 r2) = case split k2 t1 of
   (l1, r1)
     | size t1 == size l1l2 + size r1r2 -> t1
-    | otherwise -> merge l1l2 r1r2
+    | otherwise -> link2 l1l2 r1r2
     where
       !l1l2 = l1 `difference` l2
       !r1r2 = r1 `difference` r2
@@ -675,7 +679,7 @@ differenceWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
   (l2, mx2, r2) -> case mx2 of
       Nothing -> combine k1 x1 l1l2 r1r2
       Just x2 -> case f k1 x1 x2 of
-        Nothing -> merge l1l2 r1r2
+        Nothing -> link2 l1l2 r1r2
         Just x1x2 -> combine k1 x1x2 l1l2 r1r2
     where !l1l2 = differenceWithKey f l1 l2
           !r1r2 = differenceWithKey f r1 r2
@@ -698,7 +702,7 @@ intersection t1@(Bin s1 k1 x1 l1 r1) t2 =
      then if l1l2 `ptrEq` l1 && r1r2 `ptrEq` r1
           then t1
           else combine k1 x1 l1l2 r1r2
-     else merge l1l2 r1r2
+     else link2 l1l2 r1r2
 
 -- | /O(m * log (n\/m + 1), m <= n/. Intersection with a combining function.
 intersectionWithKey :: GCompare k => (forall v. k v -> f v -> g v -> h v) -> DMap k f -> DMap k g -> DMap k h
@@ -709,7 +713,7 @@ intersectionWithKey f (Bin s1 k1 x1 l1 r1) t2 =
       !l1l2 = intersectionWithKey f l1 l2
       !r1r2 = intersectionWithKey f r1 r2
   in case found of
-       Nothing -> merge l1l2 r1r2
+       Nothing -> link2 l1l2 r1r2
        Just x2 -> combine k1 (f k1 x1 x2) l1l2 r1r2
 
 {--------------------------------------------------------------------
@@ -766,19 +770,6 @@ isProperSubmapOfBy f t1 t2
   Filter and partition
 --------------------------------------------------------------------}
 
--- | /O(n)/. Filter all keys\/values that satisfy the predicate.
-filterWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> DMap k f
-filterWithKey p = go
-  where
-    go Tip = Tip
-    go t@(Bin _ kx x l r)
-      | p kx x    = if l' `ptrEq` l && r' `ptrEq` r
-                    then t
-                    else combine kx x l' r'
-      | otherwise = merge l' r'
-      where !l' = go l
-            !r' = go r
-
 -- | /O(n)/. Partition the map according to a predicate. The first
 -- map contains all elements that satisfy the predicate, the second all
 -- elements that fail the predicate. See also 'split'.
@@ -788,8 +779,8 @@ partitionWithKey p0 m0 = toPair (go p0 m0)
     go :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f :*: DMap k f)
     go _ Tip = (Tip :*: Tip)
     go p (Bin _ kx x l r)
-      | p kx x    = (combine kx x l1 r1 :*: merge l2 r2)
-      | otherwise = (merge l1 r1 :*: combine kx x l2 r2)
+      | p kx x    = (combine kx x l1 r1 :*: link2 l2 r2)
+      | otherwise = (link2 l1 r1 :*: combine kx x l2 r2)
       where
         (l1 :*: l2) = go p l
         (r1 :*: r2) = go p r
@@ -797,15 +788,6 @@ partitionWithKey p0 m0 = toPair (go p0 m0)
 -- | /O(n)/. Map values and collect the 'Just' results.
 mapMaybe :: GCompare k => (forall v. f v -> Maybe (g v)) -> DMap k f -> DMap k g
 mapMaybe f = mapMaybeWithKey (const f)
-
--- | /O(n)/. Map keys\/values and collect the 'Just' results.
-mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
-mapMaybeWithKey f = go
-  where
-    go Tip = Tip
-    go (Bin _ kx x l r) = case f kx x of
-        Just y  -> combine kx y (go l) (go r)
-        Nothing -> merge (go l) (go r)
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
 mapEitherWithKey :: GCompare k =>
@@ -817,8 +799,8 @@ mapEitherWithKey f0 = toPair . go f0
        -> DMap k f -> (DMap k g :*: DMap k h)
     go _ Tip = (Tip :*: Tip)
     go f (Bin _ kx x l r) = case f kx x of
-      Left y  -> (combine kx y l1 r1 :*: merge l2 r2)
-      Right z -> (merge l1 r1 :*: combine kx z l2 r2)
+      Left y  -> (combine kx y l1 r1 :*: link2 l2 r2)
+      Right z -> (link2 l1 r1 :*: combine kx z l2 r2)
       where
         (l1,l2) = mapEitherWithKey f l
         (r1,r2) = mapEitherWithKey f r
@@ -839,13 +821,6 @@ map f = go
 -- 'flip' because of the lack of impredicative types.
 ffor :: DMap k f -> (forall v. f v -> g v) -> DMap k g
 ffor m f = map f m
-
--- | /O(n)/. Map a function over all values in the map.
-mapWithKey :: (forall v. k v -> f v -> g v) -> DMap k f -> DMap k g
-mapWithKey f = go
-  where
-    go Tip = Tip
-    go (Bin sx kx x l r) = Bin sx kx (f kx x) (go l) (go r)
 
 -- | /O(n)/.
 -- @'fforWithKey' == 'flip' 'mapWithKey'@ except we cannot actually use
@@ -869,17 +844,6 @@ traverseWithKey_ f = go
 -- 'flip' because of the lack of impredicative types.
 forWithKey_ :: Applicative t => DMap k f -> (forall v. k v -> f v -> t ()) -> t ()
 forWithKey_ m f = traverseWithKey_ f m
-
--- | /O(n)/.
--- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
--- That is, behaves exactly like a regular 'traverse' except that the traversing
--- function also has access to the key associated with a value.
-traverseWithKey :: Applicative t => (forall v. k v -> f v -> t (g v)) -> DMap k f -> t (DMap k g)
-traverseWithKey f = go
-  where
-    go Tip = pure Tip
-    go (Bin 1 k v _ _) = (\v' -> Bin 1 k v' Tip Tip) <$> f k v
-    go (Bin s k v l r) = flip (Bin s k) <$> go l <*> f k v <*> go r
 
 -- | /O(n)/.
 -- @'forWithKey' == 'flip' 'traverseWithKey'@ except we cannot actually use
@@ -1111,18 +1075,6 @@ split k = toPair . go
           GGT -> let !(lt :*: gt) = go r in (combine kx x l lt :*: gt)
           GEQ -> (l :*: r)
 {-# INLINABLE split #-}
-
--- | /O(log n)/. The expression (@'splitLookup' k map@) splits a map just
--- like 'split' but also returns @'lookup' k map@.
-splitLookup :: forall k f v. GCompare k => k v -> DMap k f -> (DMap k f, Maybe (f v), DMap k f)
-splitLookup k = toTriple . go
-  where
-    go :: DMap k f -> Triple' (DMap k f) (Maybe (f v)) (DMap k f)
-    go Tip              = Triple' Tip Nothing Tip
-    go (Bin _ kx x l r) = case gcompare k kx of
-      GLT -> let !(Triple' lt z gt) = go l in Triple' lt z (combine kx x gt r)
-      GGT -> let !(Triple' lt z gt) = go r in Triple' (combine kx x l lt) z gt
-      GEQ -> Triple' l (Just x) r
 
 -- | /O(log n)/. The expression (@'splitMember' k map@) splits a map just
 -- like 'split' but also returns @'member' k map@.
