@@ -101,7 +101,6 @@ module Data.Dependent.Map
     , fromDistinctAscList
 
     -- * Filter
-    , filter
     , filterWithKey
     , partitionWithKey
 
