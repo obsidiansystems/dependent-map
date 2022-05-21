@@ -767,11 +767,11 @@ isProperSubmapOfBy f t1 t2
 --------------------------------------------------------------------}
 
 -- | /O(n)/. Filter all values that satisfy the predicate.
-filter :: GCompare k => (forall v. f v -> Bool) -> DMap k f -> DMap k f
+filter :: (forall v. f v -> Bool) -> DMap k f -> DMap k f
 filter f = filterWithKey (const f)
 
 -- | /O(n)/. Filter all keys\/values that satisfy the predicate.
-filterWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> DMap k f
+filterWithKey :: (forall v. k v -> f v -> Bool) -> DMap k f -> DMap k f
 filterWithKey p = go
   where
     go Tip = Tip
@@ -786,10 +786,10 @@ filterWithKey p = go
 -- | /O(n)/. Partition the map according to a predicate. The first
 -- map contains all elements that satisfy the predicate, the second all
 -- elements that fail the predicate. See also 'split'.
-partitionWithKey :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f, DMap k f)
+partitionWithKey :: (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f, DMap k f)
 partitionWithKey p0 m0 = toPair (go p0 m0)
   where
-    go :: GCompare k => (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f :*: DMap k f)
+    go :: (forall v. k v -> f v -> Bool) -> DMap k f -> (DMap k f :*: DMap k f)
     go _ Tip = (Tip :*: Tip)
     go p (Bin _ kx x l r)
       | p kx x    = (combine kx x l1 r1 :*: merge l2 r2)
@@ -799,11 +799,11 @@ partitionWithKey p0 m0 = toPair (go p0 m0)
         (r1 :*: r2) = go p r
 
 -- | /O(n)/. Map values and collect the 'Just' results.
-mapMaybe :: GCompare k => (forall v. f v -> Maybe (g v)) -> DMap k f -> DMap k g
+mapMaybe :: (forall v. f v -> Maybe (g v)) -> DMap k f -> DMap k g
 mapMaybe f = mapMaybeWithKey (const f)
 
 -- | /O(n)/. Map keys\/values and collect the 'Just' results.
-mapMaybeWithKey :: GCompare k => (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
+mapMaybeWithKey :: (forall v. k v -> f v -> Maybe (g v)) -> DMap k f -> DMap k g
 mapMaybeWithKey f = go
   where
     go Tip = Tip
@@ -812,12 +812,10 @@ mapMaybeWithKey f = go
         Nothing -> merge (go l) (go r)
 
 -- | /O(n)/. Map keys\/values and separate the 'Left' and 'Right' results.
-mapEitherWithKey :: GCompare k =>
-  (forall v. k v -> f v -> Either (g v) (h v)) -> DMap k f -> (DMap k g, DMap k h)
+mapEitherWithKey :: (forall v. k v -> f v -> Either (g v) (h v)) -> DMap k f -> (DMap k g, DMap k h)
 mapEitherWithKey f0 = toPair . go f0
   where
-    go :: GCompare k
-       => (forall v. k v -> f v -> Either (g v) (h v))
+    go :: (forall v. k v -> f v -> Either (g v) (h v))
        -> DMap k f -> (DMap k g :*: DMap k h)
     go _ Tip = (Tip :*: Tip)
     go f (Bin _ kx x l r) = case f kx x of

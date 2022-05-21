@@ -125,7 +125,7 @@ lookupAssoc sk = withSome sk $ \k ->
 {--------------------------------------------------------------------
   Combine
 --------------------------------------------------------------------}
-combine :: GCompare k => k v -> f v -> DMap k f -> DMap k f -> DMap k f
+combine :: k v -> f v -> DMap k f -> DMap k f -> DMap k f
 combine kx x Tip r  = insertMin kx x r
 combine kx x l Tip  = insertMax kx x l
 combine kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
@@ -357,7 +357,7 @@ trimLookupLo lo cmphi t@(Bin _ kx x l r)
   [filterGt k t] filter all keys >[k] from tree [t]
   [filterLt k t] filter all keys <[k] from tree [t]
 --------------------------------------------------------------------}
-filterGt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
+filterGt :: (Some k -> Ordering) -> DMap k f -> DMap k f
 filterGt cmp = go
   where
     go Tip              = Tip
@@ -366,7 +366,7 @@ filterGt cmp = go
               GT -> go r
               EQ -> r
 
-filterLt :: GCompare k => (Some k -> Ordering) -> DMap k f -> DMap k f
+filterLt :: (Some k -> Ordering) -> DMap k f -> DMap k f
 filterLt cmp = go
   where
     go Tip              = Tip
