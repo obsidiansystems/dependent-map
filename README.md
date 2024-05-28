@@ -1,4 +1,4 @@
-dependent-map [![Build Status](https://travis-ci.org/obsidiansystems/dependent-map.svg)](https://travis-ci.org/obsidiansystems/dependent-map) [![Hackage](https://img.shields.io/hackage/v/dependent-map.svg)](http://hackage.haskell.org/package/dependent-map)
+dependent-map [![Build Status](https://github.com/obsidiansystems/dependent-map/actions/workflows/haskell-ci.yml/badge.svg)](https://github.com/obsidiansystems/dependent-map/actions/workflows/haskell-ci.yml) [![Hackage](https://img.shields.io/hackage/v/dependent-map.svg)](http://hackage.haskell.org/package/dependent-map)
 ==============
 
 This library defines a dependently-typed finite map type. It is derived from `Data.Map.Map` in the `containers` package, but rather than (conceptually) storing pairs indexed by the first component, it stores `DSum`s (from the `dependent-sum` package) indexed by tag. For example
