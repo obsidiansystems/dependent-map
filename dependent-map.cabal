@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.4.0.0
+version:                0.4.1.0
 stability:              provisional
 
 cabal-version:          >= 1.8
@@ -42,6 +42,7 @@ Library
   ghc-options:          -fwarn-unused-imports -fwarn-unused-binds
   exposed-modules:      Data.Dependent.Map,
                         Data.Dependent.Map.Lens,
+                        Data.Dependent.Map.Merge,
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
   build-depends:        base >= 4.9 && < 5,
