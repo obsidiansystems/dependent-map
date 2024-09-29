@@ -1,5 +1,10 @@
 # Revision history for dependent-map
 
+## Unreleased (0.4.0.1)
+
+* Minimum `base` version is now `4.11` (GHC 8.4.x).
+* Use canonical `mappend`/`(<>)` definitions.
+
 ## 0.4.0.0 - 2020-03-26
 
 * Stop re-exporting `Some(..)`, `GCompare(..)`, and `GOrdering(..)` from `dependent-sum` (which itself re-exports from `some` in some versions).
