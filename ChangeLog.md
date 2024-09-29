@@ -1,7 +1,8 @@
 # Revision history for dependent-map
 
-## Unreleased (0.4.0.1)
+## Unreleased (0.4.1.0)
 
+* Provide `foldlWithKey'`.
 * Minimum `base` version is now `4.11` (GHC 8.4.x).
 * Use canonical `mappend`/`(<>)` definitions.
 

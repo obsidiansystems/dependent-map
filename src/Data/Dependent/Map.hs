@@ -82,7 +82,7 @@ module Data.Dependent.Map
     , foldWithKey
     , foldrWithKey
     , foldlWithKey
-    -- , foldlWithKey'
+    , foldlWithKey'
 
     -- * Conversion
     , keys
@@ -964,14 +964,12 @@ foldlWithKey f = go
     go z Tip              = z
     go z (Bin _ kx x l r) = go (f (go z l) kx x) r
 
-{-
 -- | /O(n)/. A strict version of 'foldlWithKey'.
-foldlWithKey' :: (b -> k -> a -> b) -> b -> DMap k -> b
+foldlWithKey' :: (forall v. b -> k v -> f v -> b) -> b -> DMap k f -> b
 foldlWithKey' f = go
   where
     go z Tip              = z
     go z (Bin _ kx x l r) = z `seq` go (f (go z l) kx x) r
--}
 
 {--------------------------------------------------------------------
   List variations
