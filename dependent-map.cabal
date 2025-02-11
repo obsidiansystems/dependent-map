@@ -1,5 +1,5 @@
 name:                   dependent-map
-version:                0.4.0.0
+version:                0.4.0.1
 stability:              provisional
 
 cabal-version:          >= 1.8
@@ -20,9 +20,7 @@ description:            Provides a type called @DMap@ which generalizes
 extra-source-files: ChangeLog.md
                     README.md
 
-tested-with:            GHC == 8.0.2,
-                        GHC == 8.2.2,
-                        GHC == 8.4.4,
+tested-with:            GHC == 8.4.4,
                         GHC == 8.6.5,
                         GHC == 8.8.4,
                         GHC == 8.10.7,
@@ -44,7 +42,7 @@ Library
                         Data.Dependent.Map.Lens,
                         Data.Dependent.Map.Internal
   other-modules:        Data.Dependent.Map.PtrEquality
-  build-depends:        base >= 4.9 && < 5,
+  build-depends:        base >= 4.11 && < 5,
                         containers >= 0.5.7.1 && <0.8,
                         dependent-sum >= 0.6.1 && < 0.8,
                         constraints-extras >= 0.2.3.0 && < 0.5

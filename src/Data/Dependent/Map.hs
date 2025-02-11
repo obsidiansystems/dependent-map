@@ -155,20 +155,15 @@ import Data.Typeable ((:~:)(Refl))
 import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
                   readListPrecDefault, readPrec)
 
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup (Semigroup, (<>))
-#endif
-
 import Data.Dependent.Map.Internal
 import Data.Dependent.Map.PtrEquality (ptrEq)
 
 instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
-    mappend = union
     mconcat = unions
 
 instance (GCompare k) => Semigroup (DMap k f) where
-  (<>) = mappend
+  (<>) = union
 
 {--------------------------------------------------------------------
   Operators
