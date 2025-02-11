@@ -1,7 +1,17 @@
 # Revision history for dependent-map
 
-## Unreleased (0.4.0.1)
+## Unreleased (0.4.1.0)
 
+* Now depends on `monoid-subclasses`.
+* New instances `monoid-subclasses`:
+  - `instance GCompare k => Factorial (DMap k f)`
+  - `instance GCompare k => FactorialMonoid (DMap k f)`
+  - `instance GCompare k => OverlappingGCDMonoid (DMap k f)`
+  - `instance GCompare k => PositiveMonoid (DMap k f)`
+  - `instance GCompare k => MonoidNull (DMap k f)`
+  - `instance (GCompare k, Has' Eq k f) => LeftReductive (DMap k f)`
+  - `instance (GCompare k, Has' Eq k f) => RightReductive (DMap k f)`
+* Provide `foldlWithKey'`.
 * Minimum `base` version is now `4.11` (GHC 8.4.x).
 * Use canonical `mappend`/`(<>)` definitions.
 

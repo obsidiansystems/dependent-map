@@ -82,7 +82,7 @@ module Data.Dependent.Map
     , foldWithKey
     , foldrWithKey
     , foldlWithKey
-    -- , foldlWithKey'
+    , foldlWithKey'
 
     -- * Conversion
     , keys
@@ -149,7 +149,12 @@ import Data.Constraint.Extras (Has', has')
 import Data.Dependent.Sum (DSum((:=>)))
 import Data.GADT.Compare (GCompare, GEq, GOrdering(..), gcompare, geq)
 import Data.GADT.Show (GRead, GShow)
+import qualified Data.List as List
 import Data.Maybe (isJust)
+import qualified Data.Monoid.Factorial as Factorial
+import qualified Data.Monoid.Null as Null
+import qualified Data.Monoid.Monus as Monus
+import qualified Data.Semigroup.Cancellative as Cancellative
 import Data.Some (Some, mkSome)
 import Data.Typeable ((:~:)(Refl))
 import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
@@ -157,6 +162,55 @@ import Text.Read (Lexeme(Ident), lexP, parens, prec, readListPrec,
 
 import Data.Dependent.Map.Internal
 import Data.Dependent.Map.PtrEquality (ptrEq)
+
+instance GCompare k => Factorial.Factorial (DMap k f) where
+   factors = List.map (\(k :=> fv) -> singleton k fv) . toAscList
+   primePrefix map = case lookupMin map of
+     Nothing -> map
+     Just (k :=> fv) -> singleton k fv
+   primeSuffix map = case lookupMax map of
+     Nothing -> map
+     Just (k :=> fv) -> singleton k fv
+   foldl f a m = foldlWithKey (\x k fv -> f x (singleton k fv)) a m
+   foldl' f a m = foldlWithKey' (\x k fv -> f x (singleton k fv)) a m
+   foldr f a m = foldrWithKey (\k fv x -> f (singleton k fv) a) a m
+   length = size
+   reverse = id
+
+instance GCompare k => Factorial.FactorialMonoid (DMap k f) where
+  splitPrimePrefix = fmap singularize . minViewWithKey
+    where singularize (k :=> fv, rest) = (singleton k fv, rest)
+  splitPrimeSuffix = fmap singularize . maxViewWithKey
+    where singularize (k :=> fv, rest) = (singleton k fv, rest)
+
+instance (GCompare k, Has' Eq k f) => Monus.OverlappingGCDMonoid (DMap k f) where
+  overlap = flip intersection
+  stripOverlap a b =
+    (Monus.stripSuffixOverlap a b, Monus.overlap a b, Monus.stripPrefixOverlap a b)
+  stripPrefixOverlap = flip difference
+  stripSuffixOverlap = differenceWithKey
+    (\k x y -> has' @Eq @f k $ if x == y then Nothing else Just x)
+
+instance GCompare k => Null.PositiveMonoid (DMap k f)
+
+instance GCompare k => Null.MonoidNull (DMap k f) where
+  null = null
+
+instance (GCompare k, Has' Eq k f) => Cancellative.LeftReductive (DMap k f) where
+  isPrefixOf = isSubmapOf
+  stripPrefix a b
+    | a `isSubmapOf` b = Just (b \\ a)
+    | otherwise = Nothing
+
+instance (GCompare k, Has' Eq k f) => Cancellative.RightReductive (DMap k f) where
+  isSuffixOf = isSubmapOfBy $ const $ const $ const $ const True
+  stripSuffix a b
+    | a `Cancellative.isSuffixOf` b = Just $
+      differenceWithKey
+        (\k x y -> has' @Eq @f k $ if x == y then Nothing else Just x)
+        b
+        a
+    | otherwise = Nothing
 
 instance (GCompare k) => Monoid (DMap k f) where
     mempty  = empty
@@ -964,14 +1018,12 @@ foldlWithKey f = go
     go z Tip              = z
     go z (Bin _ kx x l r) = go (f (go z l) kx x) r
 
-{-
 -- | /O(n)/. A strict version of 'foldlWithKey'.
-foldlWithKey' :: (b -> k -> a -> b) -> b -> DMap k -> b
+foldlWithKey' :: (forall v. b -> k v -> f v -> b) -> b -> DMap k f -> b
 foldlWithKey' f = go
   where
     go z Tip              = z
     go z (Bin _ kx x l r) = z `seq` go (f (go z l) kx x) r
--}
 
 {--------------------------------------------------------------------
   List variations
