@@ -1,13 +1,13 @@
+cabal-version:          3.0
 name:                   dependent-map
 version:                0.4.0.1
 stability:              provisional
 
-cabal-version:          >= 1.8
 build-type:             Simple
 
 author:                 James Cook <mokus@deepbondi.net>
 maintainer:             Obsidian Systems, LLC <maintainer@obsidian.systems>
-license:                OtherLicense
+license:                BSD-3-Clause
 license-file:           LICENSE
 homepage:               https://github.com/obsidiansystems/dependent-map
 
@@ -46,3 +46,4 @@ Library
                         containers >= 0.5.7.1 && <0.8,
                         dependent-sum >= 0.6.1 && < 0.8,
                         constraints-extras >= 0.2.3.0 && < 0.5
+  default-language:     Haskell2010
